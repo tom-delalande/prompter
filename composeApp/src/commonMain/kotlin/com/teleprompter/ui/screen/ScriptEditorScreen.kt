@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.teleprompter.data.ScriptRepository
 import com.teleprompter.model.Script
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -19,20 +20,21 @@ fun ScriptEditorScreen(
     onPlay: (Script) -> Unit
 ) {
     val existing = scriptId?.let { repository.getById(it) }
+    val currentId = remember { existing?.id ?: generateId() }
 
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var content by remember { mutableStateOf(existing?.content ?: "") }
-    var saved by remember { mutableStateOf(false) }
 
-    fun saveAndGo() {
-        val script = Script(
-            id = existing?.id ?: generateId(),
-            title = title.ifBlank { "Untitled" },
-            content = content
-        )
-        repository.save(script)
-        saved = true
-        onBack()
+    LaunchedEffect(title, content) {
+        if (title.isNotBlank() || content.isNotBlank()) {
+            delay(400)
+            val script = Script(
+                id = currentId,
+                title = title.ifBlank { "Untitled" },
+                content = content
+            )
+            repository.save(script)
+        }
     }
 
     Scaffold(
@@ -41,8 +43,14 @@ fun ScriptEditorScreen(
                 title = { Text(if (existing != null) "Edit Script" else "New Script") },
                 navigationIcon = {
                     TextButton(onClick = {
-                        if (!saved && (title.isNotBlank() || content.isNotBlank())) saveAndGo()
-                        else onBack()
+                        if (title.isNotBlank() || content.isNotBlank()) {
+                            repository.save(Script(
+                                id = currentId,
+                                title = title.ifBlank { "Untitled" },
+                                content = content
+                            ))
+                        }
+                        onBack()
                     }) {
                         Text("←")
                     }
@@ -52,9 +60,6 @@ fun ScriptEditorScreen(
                         TextButton(onClick = { onPlay(existing) }) {
                             Text("Play")
                         }
-                    }
-                    TextButton(onClick = { saveAndGo() }) {
-                        Text("Save")
                     }
                 }
             )

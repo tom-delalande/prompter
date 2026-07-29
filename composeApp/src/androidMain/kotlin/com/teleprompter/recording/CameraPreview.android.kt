@@ -1,5 +1,8 @@
 package com.teleprompter.ui.screen
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -17,8 +20,27 @@ actual fun CameraPreview(
     val androidRecorder = cameraRecorder as? AndroidCameraRecorder
     if (androidRecorder == null) return
 
-    LaunchedEffect(lifecycleOwner) {
-        androidRecorder.setUp(lifecycleOwner)
+    var permissionsGranted by remember { mutableStateOf(false) }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { granted ->
+        permissionsGranted = granted.values.all { it }
+    }
+
+    LaunchedEffect(Unit) {
+        launcher.launch(
+            arrayOf(
+                Manifest.permission.CAMERA,
+                Manifest.permission.RECORD_AUDIO
+            )
+        )
+    }
+
+    LaunchedEffect(lifecycleOwner, permissionsGranted) {
+        if (permissionsGranted) {
+            androidRecorder.setUp(lifecycleOwner)
+        }
     }
 
     AndroidView(

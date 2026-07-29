@@ -1,5 +1,6 @@
 package com.teleprompter.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +23,11 @@ fun ScriptListScreen(
     onPlayScript: (Script) -> Unit
 ) {
     var scripts by remember { mutableStateOf(repository.loadAll()) }
+    var scriptToDelete by remember { mutableStateOf<Script?>(null) }
+
+    LaunchedEffect(Unit) {
+        scripts = repository.loadAll()
+    }
 
     Scaffold(
         topBar = {
@@ -49,60 +55,112 @@ fun ScriptListScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(scripts, key = { it.id }) { script ->
-                    ScriptCard(
-                        script = script,
-                        onClick = { onEditScript(script) },
-                        onPlay = { onPlayScript(script) }
-                    )
+                    val dismissState = rememberSwipeToDismissBoxState()
+
+                    if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+                        LaunchedEffect(dismissState.currentValue) {
+                            scriptToDelete = script
+                            dismissState.snapTo(SwipeToDismissBoxValue.Settled)
+                        }
+                    }
+
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        enableDismissFromStartToEnd = false,
+                        enableDismissFromEndToStart = true,
+                        backgroundContent = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        MaterialTheme.colorScheme.errorContainer,
+                                        shape = MaterialTheme.shapes.medium
+                                    )
+                                    .padding(horizontal = 24.dp),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                Text(
+                                    "Delete",
+                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                    style = MaterialTheme.typography.labelLarge
+                                )
+                            }
+                        }
+                    ) {
+                        ScriptCard(
+                            script = script,
+                            onClick = { onEditScript(script) }
+                        )
+                    }
                 }
             }
         }
-
-        LaunchedEffect(Unit) {
-            scripts = repository.loadAll()
-        }
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            scripts = repository.loadAll()
-        }
+    scriptToDelete?.let { script ->
+        AlertDialog(
+            onDismissRequest = { scriptToDelete = null },
+            title = { Text("Delete '${script.title}'?") },
+            text = { Text("This action cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    repository.delete(script.id)
+                    scripts = repository.loadAll()
+                    scriptToDelete = null
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { scriptToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
 @Composable
 private fun ScriptCard(
     script: Script,
-    onClick: () -> Unit,
-    onPlay: () -> Unit
+    onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 12.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = script.title,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            val preview = script.content
+                .replace("\n", " ")
+                .trim()
+                .take(120)
+                .let { if (it.length >= 120) "$it..." else it }
+            if (preview.isNotBlank()) {
                 Text(
-                    text = script.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "${script.wordCount()} words",
+                    text = preview,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
+                Spacer(modifier = Modifier.height(4.dp))
             }
-            FilledTonalIconButton(onClick = onPlay) {
-                Text("▶", style = MaterialTheme.typography.titleLarge)
-            }
+            Text(
+                text = "${script.wordCount()} words",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+            )
         }
     }
 }

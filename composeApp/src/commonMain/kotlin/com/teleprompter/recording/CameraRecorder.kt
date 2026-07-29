@@ -8,7 +8,7 @@ interface RecordingListener {
 
 interface CameraRecorder {
     fun setListener(listener: RecordingListener?)
-    fun startRecording(outputPath: String)
+    fun startRecording(filePath: String)
     fun stopRecording()
     fun switchCamera()
     fun destroy()

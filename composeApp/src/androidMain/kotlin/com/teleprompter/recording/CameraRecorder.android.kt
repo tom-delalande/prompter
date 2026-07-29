@@ -72,23 +72,21 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
         }
     }
 
-    override fun startRecording(outputPath: String) {
+    override fun startRecording(filePath: String) {
         val capture = videoCapture ?: run {
             listener?.onError("VideoCapture not initialized")
             return
         }
 
-        val fileName = "TP_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.mp4"
         val outputDir = context.getExternalFilesDir(Environment.DIRECTORY_MOVIES)
             ?: context.filesDir
-        val file = File(outputDir, fileName)
+        val file = File(outputDir, filePath)
         currentOutputPath = file.absolutePath
 
         val outputOptions = FileOutputOptions.Builder(file).build()
 
         activeRecording = capture.output
             .prepareRecording(context, outputOptions)
-            .withAudioEnabled()
             .start(executor) { recordEvent ->
                 when (recordEvent) {
                     is VideoRecordEvent.Start -> {

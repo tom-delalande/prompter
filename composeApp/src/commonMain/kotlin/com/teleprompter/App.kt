@@ -1,6 +1,9 @@
 package com.teleprompter
 
 import androidx.compose.runtime.*
+import com.teleprompter.audio.AudioRecorder
+import com.teleprompter.audio.AudioVideoMuxer
+import com.teleprompter.audio.createAudioVideoMuxer
 import com.teleprompter.data.PlatformStorage
 import com.teleprompter.data.ScriptRepository
 import com.teleprompter.model.Script
@@ -21,9 +24,11 @@ fun App(
     platformStorage: PlatformStorage,
     speechRecognizerFactory: () -> SpeechRecognizer,
     cameraRecorderFactory: () -> CameraRecorder,
-    onShareFile: (String) -> Unit
+    audioRecorderFactory: () -> AudioRecorder,
+    onDownloadFile: (String) -> Unit
 ) {
     val repository = remember { ScriptRepository(platformStorage) }
+    val muxer = remember { createAudioVideoMuxer() }
 
     var currentScreen by remember { mutableStateOf(Screen.ScriptList) }
     var editingScriptId by remember { mutableStateOf<String?>(null) }
@@ -46,7 +51,9 @@ fun App(
                         teleprompterViewModel = TeleprompterViewModel(
                             script = script,
                             speechRecognizer = speechRecognizerFactory(),
-                            cameraRecorder = cameraRecorderFactory()
+                            cameraRecorder = cameraRecorderFactory(),
+                            audioRecorder = audioRecorderFactory(),
+                            audioVideoMuxer = muxer
                         )
                         currentScreen = Screen.Teleprompter
                     }
@@ -62,7 +69,9 @@ fun App(
                         teleprompterViewModel = TeleprompterViewModel(
                             script = script,
                             speechRecognizer = speechRecognizerFactory(),
-                            cameraRecorder = cameraRecorderFactory()
+                            cameraRecorder = cameraRecorderFactory(),
+                            audioRecorder = audioRecorderFactory(),
+                            audioVideoMuxer = muxer
                         )
                         currentScreen = Screen.Teleprompter
                     }
@@ -77,8 +86,8 @@ fun App(
                             teleprompterViewModel = null
                             currentScreen = Screen.ScriptList
                         },
-                        onShare = { filePath ->
-                            onShareFile(filePath)
+                        onDownload = { filePath ->
+                            onDownloadFile(filePath)
                         }
                     )
                 }
