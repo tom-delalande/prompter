@@ -1,0 +1,5 @@
+com.teleprompter.shared.composeApp-androidMain-0 /Users/thomas-delalande/dev/teleprompter/composeApp/build/generated/updated_navigation_xml/androidMain/res
+com.teleprompter.shared.composeApp-packageAndroidMainResources-1 /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/incremental/androidMain/packageAndroidMainResources/merged.dir
+com.teleprompter.shared.composeApp-packageAndroidMainResources-2 /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/incremental/androidMain/packageAndroidMainResources/stripped.dir
+com.teleprompter.shared.composeApp-packageAndroidMainResources-3 /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/packaged_res/androidMain/packageAndroidMainResources/res
+gradleHome-0 /Users/thomas-delalande/.gradle

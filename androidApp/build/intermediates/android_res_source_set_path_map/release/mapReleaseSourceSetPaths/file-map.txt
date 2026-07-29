@@ -1,0 +1,8 @@
+com.teleprompter.androidApp-pngs-0 /Users/thomas-delalande/dev/teleprompter/androidApp/build/generated/res/pngs/release
+com.teleprompter.androidApp-updated_navigation_xml-1 /Users/thomas-delalande/dev/teleprompter/androidApp/build/generated/updated_navigation_xml/release
+com.teleprompter.androidApp-packageReleaseResources-2 /Users/thomas-delalande/dev/teleprompter/androidApp/build/intermediates/incremental/release/packageReleaseResources/merged.dir
+com.teleprompter.androidApp-packageReleaseResources-3 /Users/thomas-delalande/dev/teleprompter/androidApp/build/intermediates/incremental/release/packageReleaseResources/stripped.dir
+com.teleprompter.androidApp-release-4 /Users/thomas-delalande/dev/teleprompter/androidApp/build/intermediates/merged_res/release/mergeReleaseResources
+com.teleprompter.androidApp-main-5 /Users/thomas-delalande/dev/teleprompter/androidApp/src/main/res
+com.teleprompter.androidApp-release-6 /Users/thomas-delalande/dev/teleprompter/androidApp/src/release/res
+gradleHome-0 /Users/thomas-delalande/.gradle

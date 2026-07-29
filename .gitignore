@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+build/
+local.properties
+
+# IDE
+.idea/
+*.iml
+*.iws
+.DS_Store
+
+# Kotlin
+*.class
+*.kotlin_module
+
+# Android
+androidApp/build/
+
+# iOS
+iosApp/Pods/
+iosApp/*.xcworkspace
+iosApp/*.xcodeproj/xcuserdata/
+iosApp/*.xcodeproj/project.xcworkspace/xcshareddata/
+iosApp/DerivedData/
+
+# Misc
+*.log
+*.tmp
+.cache/

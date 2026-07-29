@@ -1,0 +1,205 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.teleprompter"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+7-->INJECTED
+8        android:minSdkVersion="26"
+8-->INJECTED
+9        android:targetSdkVersion="35" />
+9-->INJECTED
+10
+11    <uses-permission android:name="android.permission.CAMERA" />
+11-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:4:5-65
+11-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:4:22-62
+12    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+12-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:5:5-71
+12-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:5:22-68
+13    <uses-permission android:name="android.permission.INTERNET" />
+13-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:6:5-67
+13-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:6:22-64
+14
+15    <uses-feature
+15-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:8:5-85
+16        android:name="android.hardware.camera"
+16-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:8:19-57
+17        android:required="false" />
+17-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:8:58-82
+18    <uses-feature
+18-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:9:5-91
+19        android:name="android.hardware.camera.front"
+19-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:9:19-63
+20        android:required="false" />
+20-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:9:64-88
+21    <uses-feature
+21-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:10:5-89
+22        android:name="android.hardware.microphone"
+22-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:10:19-61
+23        android:required="false" />
+23-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:10:62-86
+24
+25    <permission
+25-->[androidx.core:core:1.16.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/65929861816221a3e3ad0ef51dc0c551/transformed/core-1.16.0/AndroidManifest.xml:22:5-24:47
+26        android:name="com.teleprompter.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+26-->[androidx.core:core:1.16.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/65929861816221a3e3ad0ef51dc0c551/transformed/core-1.16.0/AndroidManifest.xml:23:9-81
+27        android:protectionLevel="signature" />
+27-->[androidx.core:core:1.16.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/65929861816221a3e3ad0ef51dc0c551/transformed/core-1.16.0/AndroidManifest.xml:24:9-44
+28
+29    <uses-permission android:name="com.teleprompter.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+29-->[androidx.core:core:1.16.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/65929861816221a3e3ad0ef51dc0c551/transformed/core-1.16.0/AndroidManifest.xml:26:5-97
+29-->[androidx.core:core:1.16.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/65929861816221a3e3ad0ef51dc0c551/transformed/core-1.16.0/AndroidManifest.xml:26:22-94
+30
+31    <application
+31-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:12:5-37:19
+32        android:allowBackup="true"
+32-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:13:9-35
+33        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+33-->[androidx.core:core:1.16.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/65929861816221a3e3ad0ef51dc0c551/transformed/core-1.16.0/AndroidManifest.xml:28:18-86
+34        android:debuggable="true"
+35        android:extractNativeLibs="false"
+35-->INJECTED
+36        android:supportsRtl="true" >
+36-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:14:9-35
+37        <activity
+37-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:16:9-25:20
+38            android:name="com.teleprompter.MainActivity"
+38-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:17:13-41
+39            android:exported="true"
+39-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:19:13-36
+40            android:screenOrientation="portrait"
+40-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:18:13-49
+41            android:windowSoftInputMode="adjustResize" >
+41-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:20:13-55
+42            <intent-filter>
+42-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:21:13-24:29
+43                <action android:name="android.intent.action.MAIN" />
+43-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:22:17-69
+43-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:22:25-66
+44
+45                <category android:name="android.intent.category.LAUNCHER" />
+45-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:23:17-77
+45-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:23:27-74
+46            </intent-filter>
+47        </activity>
+48
+49        <provider
+49-->INJECTED
+50            android:name="androidx.core.content.FileProvider"
+50-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:28:13-62
+51            android:authorities="com.teleprompter.fileprovider"
+51-->INJECTED
+52            android:exported="false"
+52-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:30:13-37
+53            android:grantUriPermissions="true" >
+53-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:31:13-47
+54            <meta-data
+54-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:32:13-34:54
+55                android:name="android.support.FILE_PROVIDER_PATHS"
+55-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:33:17-67
+56                android:resource="@xml/file_paths" />
+56-->/Users/thomas-delalande/dev/teleprompter/androidApp/src/main/AndroidManifest.xml:34:17-51
+57        </provider>
+58
+59        <!--
+60        Service for holding metadata. Cannot be instantiated.
+61        Metadata will be merged from other manifests.
+62        -->
+63        <service
+63-->[androidx.camera:camera-core:1.5.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/980bc4e2d2876603f6229afa4fb47257/transformed/camera-core-1.5.0/AndroidManifest.xml:29:9-33:78
+64            android:name="androidx.camera.core.impl.MetadataHolderService"
+64-->[androidx.camera:camera-core:1.5.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/980bc4e2d2876603f6229afa4fb47257/transformed/camera-core-1.5.0/AndroidManifest.xml:30:13-75
+65            android:enabled="false"
+65-->[androidx.camera:camera-core:1.5.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/980bc4e2d2876603f6229afa4fb47257/transformed/camera-core-1.5.0/AndroidManifest.xml:31:13-36
+66            android:exported="false" >
+66-->[androidx.camera:camera-core:1.5.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/980bc4e2d2876603f6229afa4fb47257/transformed/camera-core-1.5.0/AndroidManifest.xml:32:13-37
+67            <meta-data
+67-->[androidx.camera:camera-camera2:1.5.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/2378bc3dec4057dab072000b7f428995/transformed/camera-camera2-1.5.0/AndroidManifest.xml:30:13-32:89
+68                android:name="androidx.camera.core.impl.MetadataHolderService.DEFAULT_CONFIG_PROVIDER"
+68-->[androidx.camera:camera-camera2:1.5.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/2378bc3dec4057dab072000b7f428995/transformed/camera-camera2-1.5.0/AndroidManifest.xml:31:17-103
+69                android:value="androidx.camera.camera2.Camera2Config$DefaultProvider" />
+69-->[androidx.camera:camera-camera2:1.5.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/2378bc3dec4057dab072000b7f428995/transformed/camera-camera2-1.5.0/AndroidManifest.xml:32:17-86
+70        </service>
+71
+72        <uses-library
+72-->[androidx.window:window:1.5.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/2c79ae9b474ed5232b7f5c22d1f1d12e/transformed/window-1.5.0/AndroidManifest.xml:23:9-25:40
+73            android:name="androidx.window.extensions"
+73-->[androidx.window:window:1.5.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/2c79ae9b474ed5232b7f5c22d1f1d12e/transformed/window-1.5.0/AndroidManifest.xml:24:13-54
+74            android:required="false" />
+74-->[androidx.window:window:1.5.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/2c79ae9b474ed5232b7f5c22d1f1d12e/transformed/window-1.5.0/AndroidManifest.xml:25:13-37
+75        <uses-library
+75-->[androidx.window:window:1.5.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/2c79ae9b474ed5232b7f5c22d1f1d12e/transformed/window-1.5.0/AndroidManifest.xml:26:9-28:40
+76            android:name="androidx.window.sidecar"
+76-->[androidx.window:window:1.5.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/2c79ae9b474ed5232b7f5c22d1f1d12e/transformed/window-1.5.0/AndroidManifest.xml:27:13-51
+77            android:required="false" />
+77-->[androidx.window:window:1.5.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/2c79ae9b474ed5232b7f5c22d1f1d12e/transformed/window-1.5.0/AndroidManifest.xml:28:13-37
+78
+79        <provider
+79-->[androidx.emoji2:emoji2:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/185a204b517bd97d256c66a618786f3f/transformed/emoji2-1.4.0/AndroidManifest.xml:24:9-32:20
+80            android:name="androidx.startup.InitializationProvider"
+80-->[androidx.emoji2:emoji2:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/185a204b517bd97d256c66a618786f3f/transformed/emoji2-1.4.0/AndroidManifest.xml:25:13-67
+81            android:authorities="com.teleprompter.androidx-startup"
+81-->[androidx.emoji2:emoji2:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/185a204b517bd97d256c66a618786f3f/transformed/emoji2-1.4.0/AndroidManifest.xml:26:13-68
+82            android:exported="false" >
+82-->[androidx.emoji2:emoji2:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/185a204b517bd97d256c66a618786f3f/transformed/emoji2-1.4.0/AndroidManifest.xml:27:13-37
+83            <meta-data
+83-->[androidx.emoji2:emoji2:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/185a204b517bd97d256c66a618786f3f/transformed/emoji2-1.4.0/AndroidManifest.xml:29:13-31:52
+84                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+84-->[androidx.emoji2:emoji2:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/185a204b517bd97d256c66a618786f3f/transformed/emoji2-1.4.0/AndroidManifest.xml:30:17-75
+85                android:value="androidx.startup" />
+85-->[androidx.emoji2:emoji2:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/185a204b517bd97d256c66a618786f3f/transformed/emoji2-1.4.0/AndroidManifest.xml:31:17-49
+86            <meta-data
+86-->[androidx.lifecycle:lifecycle-process:2.9.4] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/85344ee6f17c9b6b4fa8e4c2ce3e1432/transformed/lifecycle-process-2.9.4/AndroidManifest.xml:29:13-31:52
+87                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+87-->[androidx.lifecycle:lifecycle-process:2.9.4] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/85344ee6f17c9b6b4fa8e4c2ce3e1432/transformed/lifecycle-process-2.9.4/AndroidManifest.xml:30:17-78
+88                android:value="androidx.startup" />
+88-->[androidx.lifecycle:lifecycle-process:2.9.4] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/85344ee6f17c9b6b4fa8e4c2ce3e1432/transformed/lifecycle-process-2.9.4/AndroidManifest.xml:31:17-49
+89            <meta-data
+89-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:29:13-31:52
+90                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+90-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:30:17-85
+91                android:value="androidx.startup" />
+91-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:31:17-49
+92        </provider>
+93
+94        <receiver
+94-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:34:9-52:20
+95            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+95-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:35:13-76
+96            android:directBootAware="false"
+96-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:36:13-44
+97            android:enabled="true"
+97-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:37:13-35
+98            android:exported="true"
+98-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:38:13-36
+99            android:permission="android.permission.DUMP" >
+99-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:39:13-57
+100            <intent-filter>
+100-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:40:13-42:29
+101                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+101-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:41:17-91
+101-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:41:25-88
+102            </intent-filter>
+103            <intent-filter>
+103-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:43:13-45:29
+104                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+104-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:44:17-85
+104-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:44:25-82
+105            </intent-filter>
+106            <intent-filter>
+106-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:46:13-48:29
+107                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+107-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:47:17-88
+107-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:47:25-85
+108            </intent-filter>
+109            <intent-filter>
+109-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:49:13-51:29
+110                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+110-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:50:17-95
+110-->[androidx.profileinstaller:profileinstaller:1.4.0] /Users/thomas-delalande/.gradle/caches/9.5.1/transforms/5b5764ce754128feb9753a2e70eb9804/transformed/profileinstaller-1.4.0/AndroidManifest.xml:50:25-92
+111            </intent-filter>
+112        </receiver>
+113    </application>
+114
+115</manifest>
