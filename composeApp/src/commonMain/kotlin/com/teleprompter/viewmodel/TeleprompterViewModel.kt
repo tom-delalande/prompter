@@ -9,9 +9,18 @@ import com.teleprompter.audio.AudioVideoMuxer
 import com.teleprompter.model.Script
 import com.teleprompter.recording.CameraRecorder
 import com.teleprompter.recording.RecordingListener
+
 import com.teleprompter.speech.SpeechListener
 import com.teleprompter.speech.SpeechMatcher
 import com.teleprompter.speech.SpeechRecognizer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class TeleprompterViewModel(
     val script: Script,
@@ -38,6 +47,11 @@ class TeleprompterViewModel(
     private var currentAudioPath = ""
     private var cameraFinished = false
     private var audioFinished = false
+    private var mergeDone = false
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val _mergeCompletedFile = MutableStateFlow<String?>(null)
+    val mergeCompletedFile = _mergeCompletedFile.asStateFlow()
+
     private val speechListener = object : SpeechListener {
         override fun onPartialResult(text: String) {
             recognizedText = text
@@ -54,12 +68,14 @@ class TeleprompterViewModel(
         }
 
         override fun onError(error: String) {
+            println("STOPFLOW: speechListener.onError: $error")
             recordingError = error
         }
 
         override fun onVoiceActivityChanged(isActive: Boolean) {}
 
         override fun onAudioRecorded(path: String) {
+            println("STOPFLOW: speechListener.onAudioRecorded path=$path")
             currentAudioPath = path
             audioFinished = true
             tryMerge()
@@ -68,43 +84,54 @@ class TeleprompterViewModel(
 
     private val recordingListener = object : RecordingListener {
         override fun onRecordingStarted() {
+            println("STOPFLOW: recordingListener.onRecordingStarted")
             isRecording = true
         }
 
         override fun onRecordingFinished(filePath: String) {
+            println("STOPFLOW: recordingListener.onRecordingFinished filePath=$filePath")
             currentVideoPath = filePath
             cameraFinished = true
             tryMerge()
         }
 
         override fun onError(error: String) {
+            println("STOPFLOW: recordingListener.onError: $error")
             recordingError = error
-            isRecording = false
+            cameraFinished = true
+            tryMerge()
         }
     }
 
     private val audioListener = object : AudioRecorderListener {
-        override fun onRecordingStarted() {}
+        override fun onRecordingStarted() {
+            println("STOPFLOW: audioListener.onRecordingStarted")
+        }
 
         override fun onRecordingFinished(filePath: String) {
+            println("STOPFLOW: audioListener.onRecordingFinished filePath=$filePath")
             currentAudioPath = filePath
             audioFinished = true
             tryMerge()
         }
 
         override fun onError(error: String) {
+            println("STOPFLOW: audioListener.onError: $error")
             recordingError = "Audio: $error"
-            isRecording = false
+            audioFinished = true
+            tryMerge()
         }
     }
 
     init {
+        println("STOPFLOW: ViewModel init")
         speechRecognizer.setListener(speechListener)
         cameraRecorder.setListener(recordingListener)
         audioRecorder.setListener(audioListener)
     }
 
     fun startPlayback() {
+        println("STOPFLOW: startPlayback currentAudioPath=$currentAudioPath")
         isPlaying = true
         isMatching = true
         accumulatedText = ""
@@ -113,6 +140,7 @@ class TeleprompterViewModel(
     }
 
     fun toggleRecording() {
+        println("STOPFLOW: toggleRecording isRecording=$isRecording")
         if (isRecording) {
             stopRecording()
         } else {
@@ -127,32 +155,52 @@ class TeleprompterViewModel(
         currentAudioPath = "teleprompter_${recordingCounter}_$opCounter.wav"
         cameraFinished = false
         audioFinished = false
+        mergeDone = false
         recordingError = null
+        println("STOPFLOW: startRecording video=$currentVideoPath audio=$currentAudioPath mergeDone reset to false")
+        _mergeCompletedFile.value = null
         cameraRecorder.startRecording(currentVideoPath)
-        // DIAGNOSTIC: skip audioRecorder to test mic contention
-        // audioRecorder.startRecording(currentAudioPath)
+        audioRecorder.startRecording(currentAudioPath)
     }
 
     private fun stopRecording() {
+        println("STOPFLOW: stopRecording called")
+        println("STOPFLOW: stopRecording state before: cameraFinished=$cameraFinished audioFinished=$audioFinished mergeDone=$mergeDone currentVideoPath=$currentVideoPath currentAudioPath=$currentAudioPath")
+        isPlaying = false
         cameraRecorder.stopRecording()
+        println("STOPFLOW: cameraRecorder.stopRecording done")
         audioRecorder.stopRecording()
+        println("STOPFLOW: audioRecorder.stopRecording done")
         speechRecognizer.stopListening()
+        println("STOPFLOW: speechRecognizer.stopListening done")
+        audioFinished = true
+        println("STOPFLOW: set audioFinished=true, calling tryMerge()")
+        tryMerge()
+        println("STOPFLOW: stopRecording finished")
     }
 
     private fun tryMerge() {
-        if (!cameraFinished || !audioFinished) return
+        println("STOPFLOW: tryMerge cameraFinished=$cameraFinished audioFinished=$audioFinished mergeDone=$mergeDone")
+        if (!cameraFinished || !audioFinished || mergeDone) return
+        mergeDone = true
         isMerging = true
-        val outputPath = currentVideoPath.replace(".mp4", "_with_audio.mp4")
-        try {
-            audioVideoMuxer.merge(currentAudioPath, currentVideoPath, outputPath)
-            lastRecordedFile = outputPath
-        } catch (e: Exception) {
-            recordingError = "Merge failed: ${e.message}"
-            lastRecordedFile = currentVideoPath
+        println("STOPFLOW: tryMerge PROCEEDING, launching coroutine")
+        scope.launch {
+            val outputPath = currentVideoPath.replace(".mp4", "_with_audio.mp4")
+            println("STOPFLOW: coroutine running, starting merge on Default")
+            try {
+                withContext(Dispatchers.Default) {
+                    audioVideoMuxer.merge(currentAudioPath, currentVideoPath, outputPath)
+                }
+                println("STOPFLOW: merge succeeded, outputPath=$outputPath")
+                _mergeCompletedFile.value = outputPath
+            } catch (e: Exception) {
+                println("STOPFLOW: merge failed: ${e.message}")
+                recordingError = "Merge failed: ${e.message}"
+                _mergeCompletedFile.value = currentVideoPath
+            }
+            isMerging = false
         }
-        isMerging = false
-        isRecording = false
-        isPlaying = false
     }
 
     fun switchCamera() {
@@ -211,7 +259,12 @@ class TeleprompterViewModel(
         updateScrollOffset()
     }
 
+    fun clearLastRecording() {
+        lastRecordedFile = null
+    }
+
     fun destroy() {
+        scope.cancel()
         speechRecognizer.destroy()
         cameraRecorder.destroy()
         audioRecorder.destroy()

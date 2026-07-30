@@ -27,6 +27,16 @@ fun ScriptListScreen(
 
     LaunchedEffect(Unit) {
         scripts = repository.loadAll()
+        if (scripts.isEmpty()) {
+            repository.save(
+                Script(
+                    id = "default",
+                    title = "Sample Script",
+                    content = "Welcome to Teleprompter!\n\nThis is your first script. You can edit it by tapping on the card, or create a new script by tapping the plus button.\n\nWhen you're ready to record, tap the play button to enter the teleprompter screen. Press the red record button to start recording your video with scrolling text.\n\nGood luck with your presentation!"
+                )
+            )
+            scripts = repository.loadAll()
+        }
     }
 
     Scaffold(

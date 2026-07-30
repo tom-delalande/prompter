@@ -2,6 +2,10 @@ package com.teleprompter.recording
 
 import android.content.Context
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
+import android.view.Surface
+import android.view.WindowManager
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.*
@@ -28,6 +32,7 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
     private var currentOutputPath: String? = null
     private var lifecycleOwner: LifecycleOwner? = null
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun setListener(listener: RecordingListener?) {
         this.listener = listener
@@ -40,6 +45,11 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
             cameraProvider = cameraProviderFuture.get()
             bindCamera()
         }, ContextCompat.getMainExecutor(context))
+    }
+
+    private fun getDisplayRotation(): Int {
+        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+        return windowManager?.defaultDisplay?.rotation ?: Surface.ROTATION_0
     }
 
     private fun bindCamera() {
@@ -57,11 +67,13 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
             .build()
             .also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
+        val rotation = getDisplayRotation()
         val recorder = Recorder.Builder()
             .setQualitySelector(QualitySelector.from(Quality.HIGHEST))
             .build()
 
         videoCapture = VideoCapture.withOutput(recorder)
+        videoCapture?.targetRotation = rotation
 
         try {
             camera = provider.bindToLifecycle(
@@ -87,16 +99,24 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
 
         activeRecording = capture.output
             .prepareRecording(context, outputOptions)
-            .start(executor) { recordEvent ->
+                .start(executor) { recordEvent ->
+                println("STOPFLOW: CameraX recordEvent=${recordEvent::class.simpleName}")
                 when (recordEvent) {
                     is VideoRecordEvent.Start -> {
-                        listener?.onRecordingStarted()
+                        println("STOPFLOW: CameraX Start event")
+                        mainHandler.post { listener?.onRecordingStarted() }
                     }
                     is VideoRecordEvent.Finalize -> {
-                        if (recordEvent.hasError()) {
-                            listener?.onError("Recording error: ${recordEvent.error}")
-                        } else {
-                            listener?.onRecordingFinished(currentOutputPath ?: file.absolutePath)
+                        val path = currentOutputPath ?: file.absolutePath
+                        println("STOPFLOW: CameraX Finalize event hasError=${recordEvent.hasError()} error=${recordEvent.error} outputPath=$path")
+                        val f = File(path)
+                        println("STOPFLOW: CameraX output file exists=${f.exists()} length=${f.length()}")
+                        mainHandler.post {
+                            if (recordEvent.hasError()) {
+                                listener?.onError("Recording error: ${recordEvent.error}")
+                            } else {
+                                listener?.onRecordingFinished(path)
+                            }
                         }
                     }
                     else -> {}
@@ -105,8 +125,10 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
     }
 
     override fun stopRecording() {
+        println("STOPFLOW: AndroidCameraRecorder.stopRecording activeRecording=$activeRecording")
         activeRecording?.close()
         activeRecording = null
+        println("STOPFLOW: AndroidCameraRecorder.stopRecording done")
     }
 
     override fun switchCamera() {

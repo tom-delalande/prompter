@@ -39,6 +39,7 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.ui)
             implementation(libs.kotlinx.serialization.json)
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
         }
 
         androidMain.dependencies {

@@ -25,7 +25,9 @@ fun App(
     speechRecognizerFactory: () -> SpeechRecognizer,
     cameraRecorderFactory: () -> CameraRecorder,
     audioRecorderFactory: () -> AudioRecorder,
-    onDownloadFile: (String) -> Unit
+    onSaveToPhotos: (String) -> Unit,
+    onShare: (String) -> Unit,
+    onDeleteFile: (String) -> Unit
 ) {
     val repository = remember { ScriptRepository(platformStorage) }
     val muxer = remember { createAudioVideoMuxer() }
@@ -86,9 +88,9 @@ fun App(
                             teleprompterViewModel = null
                             currentScreen = Screen.ScriptList
                         },
-                        onDownload = { filePath ->
-                            onDownloadFile(filePath)
-                        }
+                        onSaveToPhotos = { filePath -> onSaveToPhotos(filePath) },
+                        onShare = { filePath -> onShare(filePath) },
+                        onDeleteFile = { filePath -> onDeleteFile(filePath) }
                     )
                 }
             }

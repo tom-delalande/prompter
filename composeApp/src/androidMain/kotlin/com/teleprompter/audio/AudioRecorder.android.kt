@@ -6,8 +6,11 @@ import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.media.MediaMetadataRetriever
 import android.media.MediaMuxer
 import android.media.MediaRecorder
+import android.os.Handler
+import android.os.Looper
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
@@ -22,6 +25,7 @@ class AndroidAudioRecorder(private val outputDir: File) : AudioRecorder {
     private var outputFile: File? = null
     private var listener: AudioRecorderListener? = null
     private val executor = Executors.newSingleThreadExecutor()
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun setListener(listener: AudioRecorderListener?) {
         this.listener = listener
@@ -64,9 +68,9 @@ class AndroidAudioRecorder(private val outputDir: File) : AudioRecorder {
                 }
             }
             writeWavFile(file, chunks)
-            listener?.onRecordingFinished(file.absolutePath)
+            mainHandler.post { listener?.onRecordingFinished(file.absolutePath) }
         } catch (e: Exception) {
-            listener?.onError("Audio recording error: ${e.message}")
+            mainHandler.post { listener?.onError("Audio recording error: ${e.message}") }
         }
     }
 
@@ -94,10 +98,14 @@ class AndroidAudioRecorder(private val outputDir: File) : AudioRecorder {
     private fun shortToLE(v: Short) = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN).putShort(v).array()
 
     override fun stopRecording() {
+        println("STOPFLOW: AndroidAudioRecorder.stopRecording isRecording=$isRecording audioRecord=$audioRecord")
         isRecording = false
         audioRecord?.stop()
+        println("STOPFLOW: AndroidAudioRecorder audioRecord stopped")
         audioRecord?.release()
+        println("STOPFLOW: AndroidAudioRecorder audioRecord released")
         audioRecord = null
+        println("STOPFLOW: AndroidAudioRecorder.stopRecording done")
     }
 
     override fun destroy() {
@@ -108,6 +116,18 @@ class AndroidAudioRecorder(private val outputDir: File) : AudioRecorder {
 
 class AndroidAudioVideoMuxer : AudioVideoMuxer {
     override fun merge(audioWavPath: String, videoPath: String, outputPath: String) {
+        println("STOPFLOW: merge() called audio=$audioWavPath video=$videoPath output=$outputPath")
+        try {
+            doMerge(audioWavPath, videoPath, outputPath)
+            println("STOPFLOW: merge() completed successfully")
+        } catch (e: Exception) {
+            println("STOPFLOW: merge() exception: ${e.message}")
+            e.printStackTrace(System.out)
+            throw e
+        }
+    }
+
+    private fun doMerge(audioWavPath: String, videoPath: String, outputPath: String) {
         val videoExtractor = MediaExtractor().apply { setDataSource(videoPath) }
         val videoTrackInfo = videoExtractor.let {
             it.selectTrack(0)
@@ -132,22 +152,43 @@ class AndroidAudioVideoMuxer : AudioVideoMuxer {
             raf.seek(44); raf.readFully(data); data
         }
 
-        val inputBuffers = encoder.inputBuffers
-        val outputBuffers = encoder.outputBuffers
         val bufferInfo = MediaCodec.BufferInfo()
 
-        var pcmOffset = 0
+        // Align audio by skipping pre-camera warmup audio (camera starts ~200ms after audio)
+        val audioDurationUs = wavData.size / 2L * 1_000_000L / SAMPLE_RATE
+        val videoDurationUs = try {
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(videoPath)
+            val durStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            retriever.release()
+            (durStr?.toLongOrNull() ?: 0L) * 1000L
+        } catch (e: Exception) {
+            println("STOPFLOW: merge failed to get video duration: ${e.message}")
+            0L
+        }
+        var skipBytes = 0
+        if (videoDurationUs > 0 && audioDurationUs > videoDurationUs) {
+            val startOffsetUs = audioDurationUs - videoDurationUs
+            val skipSamples = (startOffsetUs * SAMPLE_RATE / 1_000_000L).toInt()
+            skipBytes = minOf(wavData.size, skipSamples * 2)
+            println("STOPFLOW: merge audioDurUs=$audioDurationUs videoDurUs=$videoDurationUs offsetUs=$startOffsetUs skipBytes=$skipBytes")
+        } else {
+            println("STOPFLOW: merge audioDurUs=$audioDurationUs videoDurUs=$videoDurationUs no audio skip")
+        }
+        var pcmOffset = skipBytes
         var audioTrack = -1
         var muxerStarted = false
         var eosSent = false
         var eosReceived = false
+        var audioFramesWritten = 0
 
+        println("STOPFLOW: merge starting audio loop, wavData.size=${wavData.size}")
         while (!eosReceived) {
             if (!eosSent) {
                 if (pcmOffset < wavData.size) {
                     val idx = encoder.dequeueInputBuffer(10000L)
                     if (idx >= 0) {
-                        val buf = inputBuffers[idx]!!
+                        val buf = encoder.getInputBuffer(idx)!!
                         buf.clear()
                         val remaining = wavData.size - pcmOffset
                         val chunkSize = minOf(buf.capacity(), remaining)
@@ -174,10 +215,11 @@ class AndroidAudioVideoMuxer : AudioVideoMuxer {
                 }
                 outIdx >= 0 -> {
                     if (muxerStarted) {
-                        val buf = outputBuffers[outIdx]!!
+                        val buf = encoder.getOutputBuffer(outIdx)!!
                         buf.position(bufferInfo.offset)
                         buf.limit(bufferInfo.offset + bufferInfo.size)
                         muxer.writeSampleData(audioTrack, buf, bufferInfo)
+                        audioFramesWritten++
                     }
                     encoder.releaseOutputBuffer(outIdx, false)
                     if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
@@ -190,20 +232,25 @@ class AndroidAudioVideoMuxer : AudioVideoMuxer {
             }
         }
 
+        println("STOPFLOW: merge audio loop done, audioFramesWritten=$audioFramesWritten muxerStarted=$muxerStarted pcmOffset=$pcmOffset")
         encoder.stop()
         encoder.release()
 
         // Write video frames
         val videoBuf = ByteBuffer.allocate(1024 * 1024)
+        var videoFrameCount = 0
         while (true) {
             videoBuf.clear()
             val sampleSize = videoTrackInfo.extractor.readSampleData(videoBuf, 0)
             if (sampleSize < 0) break
             videoBuf.rewind(); videoBuf.limit(sampleSize)
-            bufferInfo.set(0, sampleSize, videoTrackInfo.extractor.sampleTime, 0)
+            val flags = videoTrackInfo.extractor.sampleFlags
+            bufferInfo.set(0, sampleSize, videoTrackInfo.extractor.sampleTime, flags)
             muxer.writeSampleData(videoTrack, videoBuf, bufferInfo)
             videoTrackInfo.extractor.advance()
+            videoFrameCount++
         }
+        println("STOPFLOW: merge wrote $videoFrameCount video frames")
 
         videoTrackInfo.extractor.release()
         muxer.stop()

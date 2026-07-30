@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -18,8 +19,10 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.teleprompter.recording.CameraRecorder
 import com.teleprompter.viewmodel.TeleprompterViewModel
 
@@ -27,31 +30,282 @@ import com.teleprompter.viewmodel.TeleprompterViewModel
 fun TeleprompterScreen(
     viewModel: TeleprompterViewModel,
     onBack: () -> Unit,
-    onDownload: (String) -> Unit
+    onSaveToPhotos: (String) -> Unit,
+    onShare: (String) -> Unit,
+    onDeleteFile: (String) -> Unit
 ) {
     val scrollState = rememberScrollState()
-    var initialScrollDone by remember { mutableStateOf(false) }
+    var isPipMode by remember { mutableStateOf(false) }
+    var showRecordingMenu by remember { mutableStateOf(false) }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    var popupTriggered by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        withFrameNanos { }
-        initialScrollDone = true
+    // Observe merge completion via StateFlow
+    val mergeFile by viewModel.mergeCompletedFile.collectAsState()
+    if (mergeFile == null) {
+        popupTriggered = false
+    } else if (!popupTriggered) {
+        println("STOPFLOW: mergeFile=$mergeFile, triggering popup")
+        popupTriggered = true
+        viewModel.lastRecordedFile = mergeFile
+        viewModel.isRecording = false
+        viewModel.isPlaying = false
+        showRecordingMenu = true
     }
 
-    LaunchedEffect(viewModel.scrollOffset) {
-        if (!initialScrollDone) return@LaunchedEffect
+    LaunchedEffect(viewModel.currentWordIndex) {
+        if (viewModel.currentWordIndex <= 0) return@LaunchedEffect
         val maxScroll = scrollState.maxValue
-        if (maxScroll > 0) {
-            scrollState.animateScrollTo((maxScroll * viewModel.scrollOffset).toInt())
+        if (maxScroll <= 0) return@LaunchedEffect
+        val ratio = viewModel.currentWordIndex.toFloat() / viewModel.script.wordCount().toFloat()
+        scrollState.animateScrollTo((maxScroll * ratio).toInt())
+    }
+
+    LaunchedEffect(viewModel.isRecording) {
+        if (viewModel.isRecording) {
+            isPipMode = true
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        CameraPreview(
-            cameraRecorder = viewModel.cameraRecorder,
-            modifier = Modifier.fillMaxSize()
+    // Delete confirmation dialog
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Delete Recording", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Are you sure you want to delete this recording? This action cannot be undone.",
+                    color = Color.Gray
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.lastRecordedFile?.let { onDeleteFile(it) }
+                        viewModel.clearLastRecording()
+                        showDeleteConfirmation = false
+                        showRecordingMenu = false
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFF5252),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+    ) {
+        val isLandscape = maxWidth > maxHeight
+        val isCameraPip = isPipMode
+
+        // Camera preview - single instance, never destroyed/recreated
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(if (isCameraPip) 2f else 0f)
+        ) {
+            CameraPreview(
+                cameraRecorder = viewModel.cameraRecorder,
+                modifier = if (isCameraPip) {
+                    val pipSize = if (isLandscape) 180.dp else 140.dp
+                    val pipAspect = if (isLandscape) 16f / 9f else 9f / 16f
+                    val pipAlign = if (isLandscape) Alignment.TopEnd else Alignment.BottomEnd
+                    Modifier
+                        .align(pipAlign)
+                        .padding(
+                            top = if (isLandscape) 64.dp else 0.dp,
+                            end = if (isLandscape) 96.dp else 8.dp,
+                            bottom = if (isLandscape) 0.dp else 200.dp,
+                            start = if (isLandscape) 0.dp else 0.dp
+                        )
+                        .width(pipSize)
+                        .aspectRatio(pipAspect)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { isPipMode = false }
+                } else {
+                    Modifier.fillMaxSize()
+                }
+            )
+        }
+
+        // Teleprompter content (gradient + text)
+        val pipEndPadding = if (isCameraPip) {
+            if (isLandscape) 280.dp else 170.dp
+        } else 0.dp
+
+        TeleprompterContent(
+            viewModel = viewModel,
+            scrollState = scrollState,
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(if (isCameraPip) 0f else 1f),
+            pipEndPadding = pipEndPadding
         )
 
-        // Subtle gradient overlay for text readability
+        // Tap target to enter PIP (always available when not already in PIP)
+        if (!isCameraPip) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .zIndex(1.5f)
+                    .clickable { isPipMode = true }
+            )
+        }
+
+        // Close button — always top-left
+        IconButton(
+            onClick = {
+                viewModel.destroy()
+                onBack()
+            },
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .zIndex(4f)
+                .padding(top = 12.dp, start = 8.dp)
+        ) {
+            Text("✕", fontSize = 24.sp, color = Color.White)
+        }
+
+        // Record button — bottom center in portrait, right side centered in landscape
+        if (isLandscape) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .zIndex(3f)
+                    .padding(end = 24.dp)
+            ) {
+                RecordButton(viewModel = viewModel)
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .zIndex(3f)
+                    .padding(bottom = 48.dp)
+            ) {
+                RecordButton(viewModel = viewModel)
+            }
+        }
+
+        viewModel.recordingError?.let { error ->
+            Snackbar(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .zIndex(4f)
+                    .padding(bottom = 120.dp, start = 16.dp, end = 16.dp)
+            ) {
+                Text(error)
+            }
+        }
+    }
+
+    // Recording complete menu — rendered AFTER BoxWithConstraints so it draws on top
+    if (showRecordingMenu) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f))
+                .clickable { showRecordingMenu = false },
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                modifier = Modifier
+                    .widthIn(min = 280.dp, max = 400.dp)
+                    .clickable(enabled = false) {},
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            println("SAVE: lastRecordedFile=${viewModel.lastRecordedFile}")
+                            viewModel.lastRecordedFile?.let { onSaveToPhotos(it) }
+                            showRecordingMenu = false
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Save to Photos", fontSize = 16.sp)
+                    }
+
+                    Button(
+                        onClick = {
+                            viewModel.lastRecordedFile?.let { onShare(it) }
+                            showRecordingMenu = false
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Share", fontSize = 16.sp)
+                    }
+
+                    Button(
+                        onClick = { showDeleteConfirmation = true },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFF5252),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("Delete", fontSize = 16.sp)
+                    }
+
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecordButton(viewModel: TeleprompterViewModel) {
+    Box(
+        modifier = Modifier
+            .size(72.dp)
+            .clip(CircleShape)
+            .background(Color(0xFFFF5252))
+            .clickable {
+                if (!viewModel.isRecording && !viewModel.isPlaying) {
+                    viewModel.toggleRecording()
+                    viewModel.startPlayback()
+                } else {
+                    viewModel.toggleRecording()
+                }
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(if (viewModel.isRecording) 28.dp else 32.dp)
+                .clip(if (viewModel.isRecording) RoundedCornerShape(4.dp) else CircleShape)
+                .background(Color.White)
+        )
+    }
+}
+
+@Composable
+private fun TeleprompterContent(
+    viewModel: TeleprompterViewModel,
+    scrollState: androidx.compose.foundation.ScrollState,
+    modifier: Modifier = Modifier,
+    pipEndPadding: Dp = 0.dp
+) {
+    Box(modifier = modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -66,7 +320,6 @@ fun TeleprompterScreen(
                 )
         )
 
-        // Teleprompter text
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
@@ -81,7 +334,10 @@ fun TeleprompterScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    .padding(horizontal = if (isLandscape) 56.dp else 28.dp)
+                    .padding(
+                        start = if (isLandscape) 56.dp else 28.dp,
+                        end = (if (isLandscape) 56.dp else 28.dp) + pipEndPadding
+                    )
             ) {
                 Spacer(modifier = Modifier.height(textAreaDp / 2))
 
@@ -89,24 +345,16 @@ fun TeleprompterScreen(
                     text = buildAnnotatedString {
                         words.forEachIndexed { index, word ->
                             val isPast = index < currentIndex
-                            val isCurrent = index == currentIndex
-                            when {
-                                isPast -> withStyle(SpanStyle(
+                            if (isPast) {
+                                withStyle(SpanStyle(
                                     color = Color.Gray,
                                     fontSize = 42.sp
                                 )) {
                                     append(word)
                                     append(" ")
                                 }
-                                isCurrent -> withStyle(SpanStyle(
-                                    color = Color.White,
-                                    fontSize = 50.sp,
-                                    fontWeight = FontWeight.Bold
-                                )) {
-                                    append(word)
-                                    append(" ")
-                                }
-                                else -> withStyle(SpanStyle(
+                            } else {
+                                withStyle(SpanStyle(
                                     color = Color(0xFFCCCCCC),
                                     fontSize = 42.sp
                                 )) {
@@ -121,78 +369,6 @@ fun TeleprompterScreen(
                 )
 
                 Spacer(modifier = Modifier.height(textAreaDp / 2))
-            }
-
-        }
-
-        // Bottom controls
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(bottom = 48.dp)
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = {
-                    viewModel.destroy()
-                    onBack()
-                }) {
-                    Text("✕", fontSize = 24.sp, color = Color.White)
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFFF5252))
-                        .clickable {
-                            if (!viewModel.isRecording && !viewModel.isPlaying) {
-                                viewModel.toggleRecording()
-                                viewModel.startPlayback()
-                            } else {
-                                viewModel.toggleRecording()
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(if (viewModel.isRecording) 28.dp else 32.dp)
-                            .clip(if (viewModel.isRecording) RoundedCornerShape(4.dp) else CircleShape)
-                            .background(Color.White)
-                    )
-                }
-
-                if (viewModel.lastRecordedFile != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF4A90D9))
-                            .clickable {
-                                viewModel.lastRecordedFile?.let { onDownload(it) }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("↓", fontSize = 22.sp, color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-                } else {
-                    Spacer(modifier = Modifier.size(48.dp))
-                }
-            }
-        }
-
-        viewModel.recordingError?.let { error ->
-            Snackbar(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 120.dp, start = 16.dp, end = 16.dp)
-            ) {
-                Text(error)
             }
         }
     }

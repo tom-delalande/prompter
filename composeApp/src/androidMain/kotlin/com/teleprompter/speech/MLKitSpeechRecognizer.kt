@@ -220,8 +220,11 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
                 Log.d(TAG, "Audio capture ended, ${totalAudioBytes} bytes written to $fullPath")
                 if (totalAudioBytes > 0) {
                     scope.launch {
+                        println("STOPFLOW: MLKit calling onAudioRecorded fullPath=$fullPath")
                         listener?.onAudioRecorded(fullPath)
                     }
+                } else {
+                    println("STOPFLOW: MLKit skip onAudioRecorded totalAudioBytes=$totalAudioBytes")
                 }
             }
         }
@@ -318,18 +321,24 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
 
     override fun stopListening() {
         Log.d(TAG, "stopListening called")
+        println("STOPFLOW: MLKit.stopListening")
         isActive = false
         recognitionJob?.cancel()
         recognitionJob = null
+        println("STOPFLOW: MLKit recognitionJob cancelled")
         audioCaptureJob?.cancel()
         audioCaptureJob = null
+        println("STOPFLOW: MLKit audioCaptureJob cancelled")
         stopAudioCapture()
+        println("STOPFLOW: MLKit stopAudioCapture done")
         scope.launch {
             try {
                 recognizer?.stopRecognition()
                 Log.d(TAG, "stopRecognition completed")
+                println("STOPFLOW: MLKit stopRecognition completed")
             } catch (e: Exception) {
                 Log.e(TAG, "stopRecognition threw", e)
+                println("STOPFLOW: MLKit stopRecognition threw: ${e.message}")
             }
         }
     }

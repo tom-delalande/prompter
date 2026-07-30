@@ -14,10 +14,9 @@ fun MainViewController(): UIViewController {
             speechRecognizerFactory = { IOSSpeechRecognizer() },
             cameraRecorderFactory = { IOSCameraRecorder() },
             audioRecorderFactory = { IOSAudioRecorder() },
-            onDownloadFile = { filePath ->
-                // iOS download handled via UIActivityViewController
-                shareOnIOS(filePath)
-            }
+            onSaveToPhotos = { /* iOS — save to photo library */ },
+            onShare = { filePath -> shareOnIOS(filePath) },
+            onDeleteFile = { filePath -> /* iOS — delete file */ }
         )
     }
 }

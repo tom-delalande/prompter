@@ -1,0 +1,3 @@
+- dont close popup when clicking outside it
+- audio delay
+-
