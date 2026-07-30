@@ -24,6 +24,7 @@ class TeleprompterViewModel(
     var isFrontCamera by mutableStateOf(true)
     var recordingError by mutableStateOf<String?>(null)
     var lastRecordedFile by mutableStateOf<String?>(null)
+    var isProcessing by mutableStateOf(false)
 
     private var accumulatedText = ""
     private var recordingCounter = 0
@@ -97,9 +98,11 @@ class TeleprompterViewModel(
 
     private fun stopRecording() {
         println("STOPFLOW: stopRecording called")
+        isProcessing = true
         isPlaying = false
         cameraRecorder.stopRecording()
         speechRecognizer.stopListening()
+        isProcessing = false
         println("STOPFLOW: stopRecording finished")
     }
 

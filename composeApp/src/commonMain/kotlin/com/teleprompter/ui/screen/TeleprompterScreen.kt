@@ -33,7 +33,7 @@ fun TeleprompterScreen(
     onBack: () -> Unit,
     onSaveToPhotos: (String) -> Unit,
     onShare: (String) -> Unit,
-    onDeleteFile: (String) -> Unit
+    onDeleteFile: (String) -> Unit,
 ) {
     val scrollState = rememberScrollState()
     var isPipMode by remember { mutableStateOf(false) }
@@ -259,7 +259,7 @@ private fun RecordButton(viewModel: TeleprompterViewModel) {
             .size(72.dp)
             .clip(CircleShape)
             .background(Color(0xFFFF5252))
-            .clickable {
+            .clickable(enabled = !viewModel.isProcessing) {
                 if (!viewModel.isRecording && !viewModel.isPlaying) {
                     viewModel.toggleRecording()
                     viewModel.startPlayback()
@@ -283,7 +283,7 @@ private fun TeleprompterContent(
     viewModel: TeleprompterViewModel,
     scrollState: androidx.compose.foundation.ScrollState,
     modifier: Modifier = Modifier,
-    pipEndPadding: Dp = 0.dp
+    pipEndPadding: Dp = 0.dp,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         Box(
@@ -326,17 +326,21 @@ private fun TeleprompterContent(
                         val isPast = index < currentIndex
                         pushStringAnnotation("word", index.toString())
                         if (isPast) {
-                            withStyle(SpanStyle(
-                                color = Color.Gray,
-                                fontSize = 42.sp
-                            )) {
+                            withStyle(
+                                SpanStyle(
+                                    color = Color.Gray,
+                                    fontSize = 42.sp
+                                )
+                            ) {
                                 append(word)
                             }
                         } else {
-                            withStyle(SpanStyle(
-                                color = Color(0xFFCCCCCC),
-                                fontSize = 42.sp
-                            )) {
+                            withStyle(
+                                SpanStyle(
+                                    color = Color(0xFFCCCCCC),
+                                    fontSize = 42.sp
+                                )
+                            ) {
                                 append(word)
                             }
                         }
@@ -364,5 +368,5 @@ private fun TeleprompterContent(
 @Composable
 expect fun CameraPreview(
     cameraRecorder: CameraRecorder,
-    modifier: Modifier
+    modifier: Modifier,
 )

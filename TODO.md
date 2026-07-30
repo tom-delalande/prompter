@@ -1,3 +1,6 @@
 - dont close popup when clicking outside it
-- audio delay
--
+- Swipe back
+- Close button broken
+- Reading ahead
+- Limit scripts
+- IAP
