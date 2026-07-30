@@ -30,7 +30,6 @@ teleprompter/
 │   └── src/
 │       ├── commonMain/kotlin/com/teleprompter/
 │       │   ├── App.kt                   # Root composable, screen navigation
-│       │   ├── audio/AudioRecorder.kt   # AudioRecorder + AudioVideoMuxer interfaces
 │       │   ├── data/
 │       │   │   ├── PlatformStorage.kt   # expect file I/O interface
 │       │   │   └── ScriptRepository.kt  # JSON-backed script persistence
@@ -48,19 +47,17 @@ teleprompter/
 │       │   └── viewmodel/TeleprompterViewModel.kt  # All recording/scroll logic
 │       │
 │       ├── androidMain/kotlin/com/teleprompter/
-│       │   ├── audio/AudioRecorder.android.kt    # AudioRecord → WAV + MediaMuxer merge
 │       │   ├── data/PlatformStorage.android.kt   # Android file I/O
 │       │   ├── recording/
 │       │   │   ├── CameraPreview.android.kt      # CameraX preview + permissions
-│       │   │   └── CameraRecorder.android.kt     # CameraX video recording
+│       │   │   └── CameraRecorder.android.kt     # CameraX video+audio recording
 │       │   ├── speech/
-│       │   │   ├── SpeechRecognizer.android.kt   # Android SpeechRecognizer (fallback)
-│       │   │   ├── VoiceActivityRecognizer.kt    # PRIMARY: RMS-based VAD
+│       │   │   ├── MLKitSpeechRecognizer.kt      # PRIMARY: ML Kit voice recognition
+│       │   │   ├── VoiceActivityRecognizer.kt    # RMS-based VAD fallback
 │       │   │   └── WhisperSpeechRecognizer.kt    # OpenAI Whisper API (unused)
 │       │   └── ui/screen/PlatformActual.kt       # PlatformCompositionContext
 │       │
 │       └── iosMain/kotlin/com/teleprompter/
-│           ├── audio/AudioRecorder.ios.kt    # AudioRecorder stub
 │           ├── data/PlatformStorage.ios.kt   # iOS file I/O
 │           ├── recording/CameraRecorder.ios.kt  # AVFoundation recorder
 │           ├── speech/SpeechRecognizer.ios.kt   # SFSpeechRecognizer
@@ -83,10 +80,10 @@ teleprompter/
 ## Architecture & Conventions
 
 ### Pattern: expect/actual with factory functions
-- Common interfaces defined in `commonMain` (`SpeechRecognizer`, `CameraRecorder`, `AudioRecorder`, `PlatformStorage`, etc.)
+- Common interfaces defined in `commonMain` (`SpeechRecognizer`, `CameraRecorder`, `PlatformStorage`, etc.)
 - `Android*` and `IOS*` implementations in platform source sets
 - Platform instances created via factory lambdas in `App.kt` (passed from `MainActivity.kt` / `MainViewController.kt`)
-- `App.kt` receives `speechRecognizerFactory: () -> SpeechRecognizer`, `cameraRecorderFactory: () -> CameraRecorder`, `audioRecorderFactory: () -> AudioRecorder`
+- `App.kt` receives `speechRecognizerFactory: () -> SpeechRecognizer`, `cameraRecorderFactory: () -> CameraRecorder`
 
 ### Navigation
 - Enum-based `Screen` (ScriptList, ScriptEditor, Teleprompter) in `App.kt`
@@ -94,13 +91,12 @@ teleprompter/
 
 ### TeleprompterViewModel
 - Holds all mutable state as Compose `mutableStateOf` properties (for reactivity)
-- Manages: speech recognizer, camera recorder, audio recorder, audio video muxer
-- Three parallel recording paths (Android only):
-  1. **VoiceActivityRecognizer**: AudioRecord → RMS energy → `onVoiceActivityChanged(true/false)` → advances `currentWordIndex` at 400ms/word via coroutine
-  2. **AndroidCameraRecorder**: CameraX record video (NO audio from camera)
-  3. **AndroidAudioRecorder**: Separate AudioRecord → WAV file (for video muxing)
-- On stop: camera + audio listeners each set their `finished` flag → when both done, `tryMerge()` runs `AudioVideoMuxer.merge()` → produces `_with_audio.mp4`
-- `onVoiceActivityChanged` is added with a default empty implementation in `SpeechListener` so iOS doesn't need to implement it
+- Manages: speech recognizer, camera recorder
+- Two parallel recording paths (Android only):
+  1. **VoiceActivityRecognizer** (or ML Kit): AudioRecord → voice detection → advances `currentWordIndex`
+  2. **AndroidCameraRecorder**: CameraX record video + audio (`.withAudioEnabled()` produces a single MP4)
+- On camera finish: `onRecordingFinished(filePath)` sets `lastRecordedFile` directly (no merge needed)
+- `onVoiceActivityChanged` and `onAudioRecorded` have default empty implementations in `SpeechListener` so iOS doesn't need to implement them
 
 ### Speech Recognition
 - **Android (PRIMARY)**: `VoiceActivityRecognizer` — entirely on-device VAD via RMS energy threshold. No speech-to-text, just voice/silence detection. Advances script at fixed pace while speaking.
@@ -109,12 +105,11 @@ teleprompter/
 - `SpeechMatcher.kt` has word-matching logic but is NOT actively used on Android (only iOS). Kept for potential future use.
 
 ### Camera/Recording Flow (Android)
-1. User presses Record → `startPlayback()` starts VAD, then `toggleRecording()` starts camera + audio recorders
-2. CameraX captures **video only** (no audio via `.withAudioEnabled()`)
-3. `AndroidAudioRecorder` records raw PCM at 44100 Hz → writes WAV file
-4. `VoiceActivityRecognizer` records raw PCM at 16000 Hz → detects voice activity
-5. After stop: `AndroidAudioVideoMuxer.merge()` encodes WAV → AAC (MediaCodec) → muxes with video (MediaMuxer)
-6. Final file: `*_with_audio.mp4`
+1. User presses Record → `startPlayback()` starts VAD, then `toggleRecording()` starts camera recorder with audio
+2. CameraX captures **video + audio** (`.withAudioEnabled()` produces a single MP4)
+3. `VoiceActivityRecognizer` records raw PCM at 16000 Hz → detects voice activity
+4. After stop: `cameraRecorder.stopRecording()` → `onRecordingFinished(filePath)` sets `lastRecordedFile` directly
+5. Final file: single MP4 with synchronized audio+video from CameraX
 
 ### Compiler Flags
 - `-Xexpect-actual-classes` added in `composeApp/build.gradle.kts` (suppresses Beta warning for expect/actual classes)
@@ -152,7 +147,7 @@ teleprompter/
 # Open iosApp/iosApp.xcodeproj, select simulator, run
 
 # Check Android compilation
-./gradlew :composeApp:compileKotlinAndroid
+./gradlew :androidApp:assembleDebug
 
 # Check iOS compilation
 ./gradlew :composeApp:compileKotlinIosArm64
@@ -164,17 +159,11 @@ teleprompter/
 
 ## Known Issues & Gotchas
 
-1. **AudioRecord conflicts**: `VoiceActivityRecognizer` + `AndroidAudioRecorder` both use `AudioRecord` simultaneously. Works on Android 10+ (shared mic mode). If VAD is unreliable, combine into a single AudioRecord that provides both voice activity detection and audio file saving.
+1. **AudioRecord conflicts**: `VoiceActivityRecognizer` + CameraX `withAudioEnabled()` both use `AudioRecord` simultaneously. Works on Android 10+ (shared mic mode). If VAD is unreliable, combine into a single AudioRecord that provides both voice activity detection and audio file saving.
 
 2. **Android SpeechRecognizer ERROR_CLIENT on Android 12+**: The default recognizer routes through "Android System Intelligence" which is broken for third-party apps. Fix: go to Settings → Apps → Default apps → Digital assistant app → Voice input → select "Speech Services by Google". Or use `VoiceActivityRecognizer`.
 
-3. **AudioVideoMuxer**: The AAC encoder + MediaMuxer merging is fragile. If `merge()` fails, the `_with_audio.mp4` won't be created but the original video file is returned as fallback.
-
-4. **`MediaCodec.inputBuffers` / `outputBuffers`**: These are deprecated in newer Android but still work. The new API uses `getInputBuffer(int)` / `getOutputBuffer(int)`.
-
-5. **No coroutines library dependency**: `kotlinx.coroutines` is a transitive dependency from Compose Multiplatform but not declared in `libs.versions.toml`. To use coroutines explicitly in commonMain, add `implementation(kotlinx.coroutines.core)` to dependencies.
-
-6. **iOS audio recording + muxing**: Not implemented (stub returns error). `MainViewController.kt` passes `IOSAudioRecorder()` which reports "not implemented".
+3. **No coroutines library dependency**: `kotlinx.coroutines` is a transitive dependency from Compose Multiplatform but not declared in `libs.versions.toml`. To use coroutines explicitly in commonMain, add `implementation(kotlinx.coroutines.core)` to dependencies.
 
 ## When Adding New Features
 

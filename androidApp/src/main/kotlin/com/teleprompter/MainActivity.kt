@@ -10,7 +10,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.content.FileProvider
-import com.teleprompter.audio.AndroidAudioRecorder
 import com.teleprompter.data.PlatformStorage
 import com.teleprompter.recording.AndroidCameraRecorder
 import com.teleprompter.speech.MLKitSpeechRecognizer
@@ -21,15 +20,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val outputDir = getExternalFilesDir(Environment.DIRECTORY_MOVIES)
-            ?: filesDir
-
         setContent {
             App(
                 platformStorage = PlatformStorage(this),
                 speechRecognizerFactory = { MLKitSpeechRecognizer(this@MainActivity) },
                 cameraRecorderFactory = { AndroidCameraRecorder(this) },
-                audioRecorderFactory = { AndroidAudioRecorder(outputDir) },
                 onSaveToPhotos = { filePath -> saveToPhotos(filePath) },
                 onShare = { filePath -> share(filePath) },
                 onDeleteFile = { filePath -> deleteRecording(filePath) }

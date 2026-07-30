@@ -38,19 +38,14 @@ fun TeleprompterScreen(
     var isPipMode by remember { mutableStateOf(false) }
     var showRecordingMenu by remember { mutableStateOf(false) }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
-    var popupTriggered by remember { mutableStateOf(false) }
 
-    // Observe merge completion via StateFlow
-    val mergeFile by viewModel.mergeCompletedFile.collectAsState()
-    if (mergeFile == null) {
-        popupTriggered = false
-    } else if (!popupTriggered) {
-        println("STOPFLOW: mergeFile=$mergeFile, triggering popup")
-        popupTriggered = true
-        viewModel.lastRecordedFile = mergeFile
-        viewModel.isRecording = false
-        viewModel.isPlaying = false
-        showRecordingMenu = true
+    LaunchedEffect(viewModel.lastRecordedFile) {
+        println("STOPFLOW: lastRecordedFile changed to ${viewModel.lastRecordedFile}")
+        if (viewModel.lastRecordedFile != null) {
+            viewModel.isRecording = false
+            viewModel.isPlaying = false
+            showRecordingMenu = true
+        }
     }
 
     LaunchedEffect(viewModel.currentWordIndex) {
@@ -67,7 +62,6 @@ fun TeleprompterScreen(
         }
     }
 
-    // Delete confirmation dialog
     if (showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirmation = false },
@@ -110,7 +104,6 @@ fun TeleprompterScreen(
         val isLandscape = maxWidth > maxHeight
         val isCameraPip = isPipMode
 
-        // Camera preview - single instance, never destroyed/recreated
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -140,7 +133,6 @@ fun TeleprompterScreen(
             )
         }
 
-        // Teleprompter content (gradient + text)
         val pipEndPadding = if (isCameraPip) {
             if (isLandscape) 280.dp else 170.dp
         } else 0.dp
@@ -154,7 +146,6 @@ fun TeleprompterScreen(
             pipEndPadding = pipEndPadding
         )
 
-        // Tap target to enter PIP (always available when not already in PIP)
         if (!isCameraPip) {
             Box(
                 modifier = Modifier
@@ -164,7 +155,6 @@ fun TeleprompterScreen(
             )
         }
 
-        // Close button — always top-left
         IconButton(
             onClick = {
                 viewModel.destroy()
@@ -175,10 +165,9 @@ fun TeleprompterScreen(
                 .zIndex(4f)
                 .padding(top = 12.dp, start = 8.dp)
         ) {
-            Text("✕", fontSize = 24.sp, color = Color.White)
+            Text("\u2715", fontSize = 24.sp, color = Color.White)
         }
 
-        // Record button — bottom center in portrait, right side centered in landscape
         if (isLandscape) {
             Box(
                 modifier = Modifier
@@ -211,7 +200,6 @@ fun TeleprompterScreen(
         }
     }
 
-    // Recording complete menu — rendered AFTER BoxWithConstraints so it draws on top
     if (showRecordingMenu) {
         Box(
             modifier = Modifier

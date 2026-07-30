@@ -99,6 +99,7 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
 
         activeRecording = capture.output
             .prepareRecording(context, outputOptions)
+            .withAudioEnabled()
                 .start(executor) { recordEvent ->
                 println("STOPFLOW: CameraX recordEvent=${recordEvent::class.simpleName}")
                 when (recordEvent) {

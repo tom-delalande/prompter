@@ -1,9 +1,6 @@
 package com.teleprompter
 
 import androidx.compose.runtime.*
-import com.teleprompter.audio.AudioRecorder
-import com.teleprompter.audio.AudioVideoMuxer
-import com.teleprompter.audio.createAudioVideoMuxer
 import com.teleprompter.data.PlatformStorage
 import com.teleprompter.data.ScriptRepository
 import com.teleprompter.model.Script
@@ -24,13 +21,11 @@ fun App(
     platformStorage: PlatformStorage,
     speechRecognizerFactory: () -> SpeechRecognizer,
     cameraRecorderFactory: () -> CameraRecorder,
-    audioRecorderFactory: () -> AudioRecorder,
     onSaveToPhotos: (String) -> Unit,
     onShare: (String) -> Unit,
     onDeleteFile: (String) -> Unit
 ) {
     val repository = remember { ScriptRepository(platformStorage) }
-    val muxer = remember { createAudioVideoMuxer() }
 
     var currentScreen by remember { mutableStateOf(Screen.ScriptList) }
     var editingScriptId by remember { mutableStateOf<String?>(null) }
@@ -54,8 +49,6 @@ fun App(
                             script = script,
                             speechRecognizer = speechRecognizerFactory(),
                             cameraRecorder = cameraRecorderFactory(),
-                            audioRecorder = audioRecorderFactory(),
-                            audioVideoMuxer = muxer
                         )
                         currentScreen = Screen.Teleprompter
                     }
@@ -72,8 +65,6 @@ fun App(
                             script = script,
                             speechRecognizer = speechRecognizerFactory(),
                             cameraRecorder = cameraRecorderFactory(),
-                            audioRecorder = audioRecorderFactory(),
-                            audioVideoMuxer = muxer
                         )
                         currentScreen = Screen.Teleprompter
                     }
