@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -145,15 +146,6 @@ fun TeleprompterScreen(
                 .zIndex(if (isCameraPip) 0f else 1f),
             pipEndPadding = pipEndPadding
         )
-
-        if (!isCameraPip) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .zIndex(1.5f)
-                    .clickable { isPipMode = true }
-            )
-        }
 
         IconButton(
             onClick = {
@@ -329,31 +321,38 @@ private fun TeleprompterContent(
             ) {
                 Spacer(modifier = Modifier.height(textAreaDp / 2))
 
-                Text(
-                    text = buildAnnotatedString {
-                        words.forEachIndexed { index, word ->
-                            val isPast = index < currentIndex
-                            if (isPast) {
-                                withStyle(SpanStyle(
-                                    color = Color.Gray,
-                                    fontSize = 42.sp
-                                )) {
-                                    append(word)
-                                    append(" ")
-                                }
-                            } else {
-                                withStyle(SpanStyle(
-                                    color = Color(0xFFCCCCCC),
-                                    fontSize = 42.sp
-                                )) {
-                                    append(word)
-                                    append(" ")
-                                }
+                val annotatedString = buildAnnotatedString {
+                    words.forEachIndexed { index, word ->
+                        val isPast = index < currentIndex
+                        pushStringAnnotation("word", index.toString())
+                        if (isPast) {
+                            withStyle(SpanStyle(
+                                color = Color.Gray,
+                                fontSize = 42.sp
+                            )) {
+                                append(word)
+                            }
+                        } else {
+                            withStyle(SpanStyle(
+                                color = Color(0xFFCCCCCC),
+                                fontSize = 42.sp
+                            )) {
+                                append(word)
                             }
                         }
-                    },
+                        append("   ")
+                    }
+                }
+                ClickableText(
+                    text = annotatedString,
                     modifier = Modifier.fillMaxWidth(),
-                    lineHeight = 58.sp
+                    onClick = { offset ->
+                        val annotations = annotatedString.getStringAnnotations("word", offset, offset)
+                        if (annotations.isNotEmpty()) {
+                            viewModel.seekTo(annotations.first().item.toInt())
+                        }
+                    },
+                    style = androidx.compose.ui.text.TextStyle(lineHeight = 58.sp)
                 )
 
                 Spacer(modifier = Modifier.height(textAreaDp / 2))
