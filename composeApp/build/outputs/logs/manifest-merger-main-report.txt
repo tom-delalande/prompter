@@ -1,13 +1,13 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest5674592951449103578.xml:2:13-83
-INJECTED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest5674592951449103578.xml:2:13-83
+ADDED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest3797648231920813863.xml:2:13-83
+INJECTED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest3797648231920813863.xml:2:13-83
 	package
-		INJECTED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest5674592951449103578.xml
+		INJECTED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest3797648231920813863.xml
 	xmlns:android
-		ADDED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest5674592951449103578.xml:2:23-81
+		ADDED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest3797648231920813863.xml:2:23-81
 uses-sdk
-INJECTED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest5674592951449103578.xml reason: use-sdk injection requested
-INJECTED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest5674592951449103578.xml
+INJECTED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest3797648231920813863.xml reason: use-sdk injection requested
+INJECTED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest3797648231920813863.xml
 	android:minSdkVersion
-		INJECTED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest5674592951449103578.xml
+		INJECTED from /Users/thomas-delalande/dev/teleprompter/composeApp/build/intermediates/tmp/ProcessLibraryManifest/tempAndroidManifest3797648231920813863.xml

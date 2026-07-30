@@ -34,10 +34,7 @@ fun TeleprompterScreen(
 
     LaunchedEffect(Unit) {
         withFrameNanos { }
-        if (scrollState.maxValue > 0) {
-            scrollState.scrollTo((scrollState.maxValue * 0.15f).toInt())
-            initialScrollDone = true
-        }
+        initialScrollDone = true
     }
 
     LaunchedEffect(viewModel.scrollOffset) {
@@ -76,6 +73,7 @@ fun TeleprompterScreen(
                 .padding(bottom = 120.dp, top = 48.dp)
         ) {
             val textAreaDp = maxHeight
+            val isLandscape = maxWidth > maxHeight
             val words = viewModel.script.words
             val currentIndex = viewModel.currentWordIndex
 
@@ -83,9 +81,9 @@ fun TeleprompterScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = if (isLandscape) 56.dp else 28.dp)
             ) {
-                Spacer(modifier = Modifier.height(textAreaDp / 3))
+                Spacer(modifier = Modifier.height(textAreaDp / 2))
 
                 Text(
                     text = buildAnnotatedString {
@@ -95,14 +93,14 @@ fun TeleprompterScreen(
                             when {
                                 isPast -> withStyle(SpanStyle(
                                     color = Color.Gray,
-                                    fontSize = 28.sp
+                                    fontSize = 42.sp
                                 )) {
                                     append(word)
                                     append(" ")
                                 }
                                 isCurrent -> withStyle(SpanStyle(
                                     color = Color.White,
-                                    fontSize = 34.sp,
+                                    fontSize = 50.sp,
                                     fontWeight = FontWeight.Bold
                                 )) {
                                     append(word)
@@ -110,7 +108,7 @@ fun TeleprompterScreen(
                                 }
                                 else -> withStyle(SpanStyle(
                                     color = Color(0xFFCCCCCC),
-                                    fontSize = 28.sp
+                                    fontSize = 42.sp
                                 )) {
                                     append(word)
                                     append(" ")
@@ -118,10 +116,11 @@ fun TeleprompterScreen(
                             }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    lineHeight = 58.sp
                 )
 
-                Spacer(modifier = Modifier.height(textAreaDp / 3))
+                Spacer(modifier = Modifier.height(textAreaDp / 2))
             }
 
         }
@@ -135,28 +134,6 @@ fun TeleprompterScreen(
                 .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Status & word count
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = when {
-                        viewModel.isRecording -> "Recording"
-                        viewModel.isPlaying -> "Listening"
-                        else -> ""
-                    },
-                    color = if (viewModel.isRecording) Color(0xFFFF5252)
-                    else if (viewModel.isPlaying) Color(0xFF4CAF50)
-                    else Color.Transparent,
-                    fontSize = 14.sp
-                )
-
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,

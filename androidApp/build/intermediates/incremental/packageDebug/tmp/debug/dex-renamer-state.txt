@@ -1,4 +1,4 @@
-#Wed Jul 29 23:08:25 AWST 2026
+#Thu Jul 30 09:05:22 AWST 2026
 base.0=/Users/thomas-delalande/dev/teleprompter/androidApp/build/intermediates/dex/debug/mergeExtDexDebug/classes.dex
 base.1=/Users/thomas-delalande/dev/teleprompter/androidApp/build/intermediates/dex/debug/mergeLibDexDebug/1/classes.dex
 base.10=/Users/thomas-delalande/dev/teleprompter/androidApp/build/intermediates/global_synthetics_dex/debug/generateDebugGlobalSynthetics/classes.dex

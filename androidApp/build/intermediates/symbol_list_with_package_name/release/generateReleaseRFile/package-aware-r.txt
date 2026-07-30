@@ -1,2 +1,0 @@
-com.teleprompter
-xml file_paths
