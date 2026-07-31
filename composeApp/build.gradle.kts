@@ -12,7 +12,7 @@ kotlin {
     }
     android {
         namespace = "com.teleprompter.shared"
-        compileSdk = 35
+        compileSdk = 36
         minSdk = 26
 
         compilerOptions {

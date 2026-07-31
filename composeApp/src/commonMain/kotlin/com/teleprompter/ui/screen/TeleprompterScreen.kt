@@ -237,6 +237,7 @@ private fun TeleprompterContent(
                 val lineHeight = (textDisplayStyle.fontSizeSp * 1.35f).sp
                 val density = LocalDensity.current
                 val borderWidthPx = with(density) { textDisplayStyle.borderWidthDp.dp.toPx() }
+                val verticalCenterOffset = textAreaDp / 2 - with(density) { lineHeight.toDp() } / 2
 
                 Column(
                     modifier = Modifier
@@ -247,7 +248,7 @@ private fun TeleprompterContent(
                             end = (if (isLandscape) 56.dp else 28.dp) + pipEndPadding
                         )
                 ) {
-                    Spacer(modifier = Modifier.height(textAreaDp / 2))
+                    Spacer(modifier = Modifier.height(verticalCenterOffset))
 
                     fun scriptString(colorFor: (isPast: Boolean) -> Color): AnnotatedString =
                         buildAnnotatedString {
@@ -304,7 +305,7 @@ private fun TeleprompterContent(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(textAreaDp / 2))
+                    Spacer(modifier = Modifier.height(verticalCenterOffset))
                 }
         }
     }

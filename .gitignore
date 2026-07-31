@@ -16,6 +16,8 @@ local.properties
 
 # Android
 androidApp/build/
+androidApp/keystore.properties
+androidApp/keystore/
 
 # iOS
 iosApp/Pods/
