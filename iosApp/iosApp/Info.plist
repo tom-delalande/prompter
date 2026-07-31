@@ -11,7 +11,9 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Teleprompter</string>
+    <string>Prompter</string>
+    <key>CFBundleDisplayName</key>
+    <string>Prompter</string>
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
@@ -21,11 +23,11 @@
     <key>LSRequiresIPhoneOS</key>
     <true/>
     <key>NSCameraUsageDescription</key>
-    <string>Teleprompter needs camera access to record your videos.</string>
+    <string>Prompter needs camera access to record your videos.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Teleprompter needs microphone access to record audio with your videos and transcribe speech.</string>
+    <string>Prompter needs microphone access to record audio with your videos and transcribe speech.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>Teleprompter uses speech recognition to auto-scroll the script as you read.</string>
+    <string>Prompter uses speech recognition to auto-scroll the script as you read.</string>
     <key>UIApplicationSceneManifest</key>
     <dict>
         <key>UIApplicationSupportsMultipleScenes</key>

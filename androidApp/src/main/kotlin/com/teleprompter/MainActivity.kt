@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.teleprompter.billing.AndroidBillingManager
 import com.teleprompter.data.PlatformStorage
 import com.teleprompter.recording.AndroidCameraRecorder
 import com.teleprompter.speech.MLKitSpeechRecognizer
@@ -23,6 +24,9 @@ class MainActivity : ComponentActivity() {
                 platformStorage = PlatformStorage(this),
                 speechRecognizerFactory = { MLKitSpeechRecognizer(this@MainActivity) },
                 cameraRecorderFactory = { AndroidCameraRecorder(this) },
+                billingManagerFactory = {
+                    AndroidBillingManager(this@MainActivity, PlatformStorage(this@MainActivity))
+                },
                 onSaveToPhotos = { filePath -> saveToPhotos(filePath) }
             )
         }

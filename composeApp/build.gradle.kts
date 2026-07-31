@@ -50,6 +50,7 @@ kotlin {
             implementation(libs.camerax.lifecycle)
             implementation(libs.camerax.video)
             implementation(libs.camerax.view)
+            implementation(libs.androidx.billing)
             implementation("com.google.mlkit:genai-speech-recognition:1.0.0-alpha1")
         }
     }

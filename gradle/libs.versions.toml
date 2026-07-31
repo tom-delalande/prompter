@@ -6,6 +6,7 @@ kotlinx-serialization = "1.8.1"
 androidx-activityCompose = "1.10.1"
 androidx-lifecycleRuntimeCompose = "2.9.0"
 camerax = "1.5.0"
+billing = "8.3.0"
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
@@ -15,6 +16,7 @@ camerax-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "ca
 camerax-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
 camerax-video = { module = "androidx.camera:camera-video", version.ref = "camerax" }
 camerax-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
+androidx-billing = { module = "com.android.billingclient:billing-ktx", version.ref = "billing" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

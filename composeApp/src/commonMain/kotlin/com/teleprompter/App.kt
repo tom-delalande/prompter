@@ -1,6 +1,7 @@
 package com.teleprompter
 
 import androidx.compose.runtime.*
+import com.teleprompter.billing.BillingManager
 import com.teleprompter.data.PlatformStorage
 import com.teleprompter.data.ScriptRepository
 import com.teleprompter.data.SettingsRepository
@@ -23,10 +24,12 @@ fun App(
     platformStorage: PlatformStorage,
     speechRecognizerFactory: () -> SpeechRecognizer,
     cameraRecorderFactory: () -> CameraRecorder,
+    billingManagerFactory: () -> BillingManager,
     onSaveToPhotos: (String) -> Unit
 ) {
     val repository = remember { ScriptRepository(platformStorage) }
     val settingsRepository = remember { SettingsRepository(platformStorage) }
+    val billingManager = remember { billingManagerFactory() }
 
     var currentScreen by remember { mutableStateOf(Screen.ScriptList) }
     var editingScriptId by remember { mutableStateOf<String?>(null) }
@@ -38,6 +41,7 @@ fun App(
             Screen.ScriptList -> {
                 ScriptListScreen(
                     repository = repository,
+                    billingManager = billingManager,
                     onNewScript = {
                         editingScriptId = null
                         currentScreen = Screen.ScriptEditor
