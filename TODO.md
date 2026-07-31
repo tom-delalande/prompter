@@ -1,3 +1,1 @@
 - Reading ahead
-- Custom text
-- IAP

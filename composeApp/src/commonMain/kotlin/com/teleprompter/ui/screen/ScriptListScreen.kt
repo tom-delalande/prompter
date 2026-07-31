@@ -278,16 +278,20 @@ private fun TipFooter(onClick: () -> Unit) {
         }
         append(" to remove this text & support app development")
     }
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp),
-        textAlign = TextAlign.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(end = 88.dp)
-            .clickable(onClick = onClick)
-            .padding(vertical = 16.dp)
-    )
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall.copy(fontSize = 14.sp),
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .widthIn(max = 200.dp)
+                .clickable(onClick = onClick)
+                .padding(vertical = 16.dp)
+        )
+    }
 }
 
 @Composable
