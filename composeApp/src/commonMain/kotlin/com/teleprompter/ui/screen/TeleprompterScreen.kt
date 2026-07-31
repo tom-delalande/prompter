@@ -155,7 +155,7 @@ fun TeleprompterScreen(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .zIndex(4f)
-                .padding(top = 12.dp, start = 8.dp)
+                .padding(top = 48.dp, start = 24.dp)
         ) {
             Text("\u2715", fontSize = 24.sp, color = Color.White)
         }

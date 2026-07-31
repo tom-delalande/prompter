@@ -57,6 +57,7 @@ class TeleprompterViewModel(
             lastRecordedFile = filePath
             isRecording = false
             isPlaying = false
+            isProcessing = false
         }
 
         override fun onError(error: String) {
@@ -102,7 +103,6 @@ class TeleprompterViewModel(
         isPlaying = false
         cameraRecorder.stopRecording()
         speechRecognizer.stopListening()
-        isProcessing = false
         println("STOPFLOW: stopRecording finished")
     }
 
