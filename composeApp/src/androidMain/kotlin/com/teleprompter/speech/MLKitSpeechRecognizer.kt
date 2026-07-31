@@ -51,6 +51,7 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
     private var audioPipeWriteEnd: ParcelFileDescriptor? = null
     private var audioOutputPath: String? = null
     private var totalAudioBytes: Long = 0
+    private var partialSeq = 0L
 
     override fun setListener(listener: SpeechListener?) {
         this.listener = listener
@@ -64,6 +65,8 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         if (isActive) return
         isActive = true
         totalAudioBytes = 0
+        partialSeq = 0
+        println("SKIPDBG| MLKIT startListening audioOutputPath=$audioOutputPath")
         Log.d(TAG, "--- startListening ---")
 
         val rec = createRecognizer() ?: return
@@ -191,12 +194,13 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
             return null
         }
 
-        Log.d(TAG, "AudioRecord started at ${SAMPLE_RATE}Hz")
+        println("SKIPDBG| MLKIT AudioRecord started at ${SAMPLE_RATE}Hz bufferSize=$bufferSize path=$fullPath")
 
         audioCaptureJob = scope.launch(Dispatchers.Default) {
             val buffer = ByteArray(bufferSize)
             val fos = FileOutputStream(fullPath, true)
             val pipeOut = ParcelFileDescriptor.AutoCloseOutputStream(audioPipeWriteEnd!!)
+            var lastLogMs = 0L
 
             try {
                 while (isActive && record.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
@@ -205,11 +209,18 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
                         pipeOut.write(buffer, 0, bytesRead)
                         fos.write(buffer, 0, bytesRead)
                         totalAudioBytes += bytesRead
+                        val now = System.currentTimeMillis()
+                        if (now - lastLogMs >= 2000) {
+                            lastLogMs = now
+                            println("SKIPDBG| MLKIT audio totalBytes=$totalAudioBytes isActive=$isActive")
+                        }
                     } else if (bytesRead < 0) {
                         Log.e(TAG, "AudioRecord read error: $bytesRead")
+                        println("SKIPDBG| MLKIT audio read error bytesRead=$bytesRead")
                         break
                     }
                 }
+                println("SKIPDBG| MLKIT audio loop exited state=${record.recordingState} totalBytes=$totalAudioBytes")
             } catch (e: IOException) {
                 if (isActive) Log.e(TAG, "Audio capture IO error", e)
             } finally {
@@ -290,37 +301,51 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         }.build()
 
         Log.d(TAG, "Starting recognition flow...")
+        println("SKIPDBG| MLKIT recognition flow STARTING isActive=$isActive")
         try {
             rec.startRecognition(request)
                 .flowOn(Dispatchers.Default)
                 .collect { response ->
-                    if (!isActive) return@collect
+                    if (!isActive) {
+                        println("SKIPDBG| MLKIT dropped response (isActive=false) ${response::class.simpleName}")
+                        return@collect
+                    }
                     when (response) {
                         is SpeechRecognizerResponse.PartialTextResponse -> {
+                            partialSeq++
+                            println("SKIPDBG| MLKIT PARTIAL[$partialSeq] text=\"${response.text}\"")
                             Log.d(TAG, "PARTIAL: \"${response.text}\"")
                             listener?.onPartialResult(response.text)
                         }
                         is SpeechRecognizerResponse.FinalTextResponse -> {
+                            partialSeq++
+                            println("SKIPDBG| MLKIT FINAL[$partialSeq] text=\"${response.text}\"")
                             Log.d(TAG, "FINAL: \"${response.text}\"")
                             listener?.onPartialResult(response.text)
                         }
                         is SpeechRecognizerResponse.ErrorResponse -> {
+                            println("SKIPDBG| MLKIT ERROR msg=${response.e.message}")
                             Log.e(TAG, "ERROR: ${response.e.message}")
                             if (isActive) listener?.onError(response.e.message ?: "Recognition error")
                         }
                         is SpeechRecognizerResponse.CompletedResponse -> {
+                            println("SKIPDBG| MLKIT COMPLETED isActive=$isActive")
                             Log.d(TAG, "COMPLETED")
                         }
                     }
                 }
         } catch (e: Exception) {
             Log.e(TAG, "Recognition flow threw", e)
+            println("SKIPDBG| MLKIT recognition flow THREW: ${e.message}")
             if (isActive) listener?.onError(e.message ?: "Recognition error")
+        } finally {
+            println("SKIPDBG| MLKIT recognition flow ENDED isActive=$isActive")
         }
     }
 
     override fun stopListening() {
         Log.d(TAG, "stopListening called")
+        println("SKIPDBG| MLKIT stopListening isActive=$isActive")
         println("STOPFLOW: MLKit.stopListening")
         isActive = false
         recognitionJob?.cancel()

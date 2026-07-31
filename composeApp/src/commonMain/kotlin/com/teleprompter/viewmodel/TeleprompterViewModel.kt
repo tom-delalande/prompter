@@ -26,8 +26,9 @@ class TeleprompterViewModel(
     var lastRecordedFile by mutableStateOf<String?>(null)
     var isProcessing by mutableStateOf(false)
 
-    private var accumulatedText = ""
-    private val resyncBuffer = mutableListOf<String>()
+    private val pendingWords = ArrayDeque<String>()
+    private var lastPartialTokens: List<String> = emptyList()
+    private val maxPendingWords = 40
     private var recordingCounter = 0
     private var opCounter = 0L
     private var currentVideoPath = ""
@@ -35,6 +36,7 @@ class TeleprompterViewModel(
 
     private val speechListener = object : SpeechListener {
         override fun onPartialResult(text: String) {
+            println("SKIPDBG| VM onPartial isPlaying=$isPlaying text=\"$text\"")
             recognizedText = text
             if (!isPlaying) return
             if (text.isBlank()) return
@@ -72,10 +74,11 @@ class TeleprompterViewModel(
     }
 
     fun startPlayback() {
+        println("SKIPDBG| VM startPlayback cur=$currentWordIndex words=${script.wordCount()} lastRecorded=${lastRecordedFile != null}")
         isPlaying = true
         isMatching = true
-        accumulatedText = ""
-        resyncBuffer.clear()
+        pendingWords.clear()
+        lastPartialTokens = emptyList()
         speechRecognizer.setAudioOutputPath(currentAudioPath)
         speechRecognizer.startListening()
     }
@@ -116,61 +119,59 @@ class TeleprompterViewModel(
     private fun processSpeech(text: String) {
         if (currentWordIndex >= script.wordCount()) return
 
-        val newWords = extractNewWords(text, accumulatedText)
-        accumulatedText = text
-        if (newWords.isBlank()) return
-
-        val result = SpeechMatcher.match(newWords, script.words, currentWordIndex)
-        isMatching = result.isMatching
-        if (result.isMatching) {
-            currentWordIndex = minOf(result.newWordIndex, script.wordCount())
-            updateScrollOffset()
-            resyncBuffer.clear()
-            println("MATCH: incremental success idx=$currentWordIndex words='$newWords'")
+        val tokens = SpeechMatcher.tokenize(text)
+        if (tokens.isEmpty()) {
+            println("SKIPDBG| VM process tokens=[] text=\"$text\"")
             return
         }
 
-        println("MATCH: incremental fail at idx=$currentWordIndex words='$newWords'")
-
-        val newWordList = newWords.lowercase().trim()
-            .split("\\s+".toRegex())
-            .filter { it.isNotBlank() }
-        resyncBuffer.addAll(newWordList)
-
-        if (resyncBuffer.size >= 2) {
-            val bufferText = resyncBuffer.joinToString(" ")
-            val resyncResult = SpeechMatcher.match(bufferText, script.words, currentWordIndex)
-            println("MATCH: buffer(${resyncBuffer.size}) '$bufferText' -> isMatch=${resyncResult.isMatching} newIdx=${resyncResult.newWordIndex}")
-            if (resyncResult.isMatching && resyncResult.newWordIndex > currentWordIndex) {
-                currentWordIndex = minOf(resyncResult.newWordIndex, script.wordCount())
-                updateScrollOffset()
-                isMatching = true
-                resyncBuffer.clear()
-                println("MATCH: buffer success idx=$currentWordIndex")
-                return
-            }
+        var prefix = 0
+        while (prefix < lastPartialTokens.size &&
+            prefix < tokens.size &&
+            lastPartialTokens[prefix] == tokens[prefix]
+        ) {
+            prefix++
         }
+        val newTokens = tokens.drop(prefix)
+        lastPartialTokens = tokens
+        println(
+            "SKIPDBG| VM process cur=$currentWordIndex last=${lastPartialTokens.size} " +
+                "prefix=$prefix new=${newTokens.size} newTokens=$newTokens"
+        )
 
-        if (resyncBuffer.size > 30) {
-            resyncBuffer.removeAt(0)
+        if (newTokens.isEmpty()) return
+
+        pendingWords.addAll(newTokens)
+        while (pendingWords.size > maxPendingWords) {
+            pendingWords.removeFirst()
+        }
+        println(
+            "SKIPDBG| VM pending=${pendingWords.size} pendingWords=${pendingWords.take(10)} " +
+                (if (pendingWords.size > 10) "..." else "")
+        )
+
+        val result = SpeechMatcher.match(
+            pendingWords.toList(),
+            script.words,
+            currentWordIndex
+        )
+        isMatching = result.isMatching
+        if (result.isMatching && result.newWordIndex > currentWordIndex) {
+            currentWordIndex = minOf(result.newWordIndex, script.wordCount())
+            updateScrollOffset()
+            val consumed = result.consumedWords.coerceAtMost(pendingWords.size)
+            repeat(consumed) { pendingWords.removeFirst() }
+            println(
+                "SKIPDBG| VM MATCH ok idx=$currentWordIndex conf=${result.confidence} " +
+                    "consumed=$consumed pending=${pendingWords.size}"
+            )
+        } else {
+            println(
+                "SKIPDBG| VM MATCH no isMatching=${result.isMatching} " +
+                    "newIdx=${result.newWordIndex} conf=${result.confidence} cur=$currentWordIndex"
+            )
         }
     }
-
-    private fun extractNewWords(newText: String, oldText: String): String {
-        if (oldText.isBlank()) return newText
-
-        val newWords = newText.lowercase().trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-        val oldWords = oldText.lowercase().trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
-
-        val firstDiff = newWords.indices.firstOrNull { i ->
-            i >= oldWords.size || normalize(newWords[i]) != normalize(oldWords.getOrNull(i) ?: "")
-        } ?: return ""
-
-        return newWords.drop(firstDiff).joinToString(" ")
-    }
-
-    private fun normalize(word: String): String =
-        word.lowercase().filter { it.isLetterOrDigit() }
 
     private fun updateScrollOffset() {
         if (script.wordCount() == 0) return

@@ -2,34 +2,44 @@ package com.teleprompter.speech
 
 data class MatchResult(
     val newWordIndex: Int,
-    val isMatching: Boolean
+    val isMatching: Boolean,
+    val consumedWords: Int = 0,
+    val confidence: Float = 0f
 )
 
 object SpeechMatcher {
-    private const val MAX_LOOKAHEAD_WORDS = 30
-    private const val MAX_RESYNC_LOOKAHEAD_WORDS = 120
+    private const val NEAR_LOOKAHEAD_WORDS = 8
+    private const val MAX_LOOKAHEAD_WORDS = 40
+    private const val MAX_RESYNC_LOOKAHEAD_WORDS = 150
     private const val MAX_ADVANCE_PER_MATCH = 12
     private const val HIGH_CONFIDENCE_MATCH_COUNT = 3
     private const val DIRECT_MATCH_RATIO = 0.5f
-    private const val LOOKAHEAD_MATCH_RATIO = 0.75f
-    private const val RESYNC_MATCH_RATIO = 0.70f
-    private const val MIN_RESYNC_WORDS = 2
+    private const val LOOKAHEAD_MATCH_RATIO = 0.6f
+    private const val RESYNC_MATCH_RATIO = 0.7f
+    private const val NEAR_CONFIDENCE_THRESHOLD = 1.5f
+    private const val FAR_CONFIDENCE_THRESHOLD = 2.1f
 
     private val fillers = setOf(
         "um", "uh", "ah", "er", "hmm"
     )
 
+    fun tokenize(text: String): List<String> =
+        text
+            .lowercase()
+            .trim()
+            .split("\\s+".toRegex())
+            .map(::normalize)
+            .filter { it.isNotBlank() && it !in fillers }
+
     fun match(
-        speechText: String,
+        speechWords: List<String>,
         scriptWords: List<String>,
         currentIndex: Int
     ): MatchResult {
+        println("SKIPDBG| MATCHER in sp=${speechWords.size} sp=$speechWords cur=$currentIndex scriptSize=${scriptWords.size}")
         if (currentIndex >= scriptWords.size) {
-            return MatchResult(scriptWords.size, true)
+            return MatchResult(scriptWords.size, true, confidence = 1f)
         }
-
-        val speechWords = tokenize(speechText)
-
         if (speechWords.isEmpty()) {
             return MatchResult(currentIndex, true)
         }
@@ -38,99 +48,144 @@ object SpeechMatcher {
             speechWords = speechWords,
             scriptWords = scriptWords,
             fromIndex = currentIndex,
-            requiredRatio = DIRECT_MATCH_RATIO
+            requiredRatio = DIRECT_MATCH_RATIO,
+            leading = 1
+        )
+        println(
+            "SKIPDBG| MATCHER direct ok=${directResult.isMatching} ni=${directResult.newWordIndex} " +
+                "mc=${directResult.matchedCount} conf=${directResult.confidence()}"
         )
         if (directResult.isMatching) {
-            return directResult.toMatchResult(
-                currentIndex = currentIndex,
-                scriptSize = scriptWords.size,
-                capAdvance = true
+            return MatchResult(
+                newWordIndex = directResult.newWordIndex
+                    .coerceAtMost(currentIndex + MAX_ADVANCE_PER_MATCH),
+                isMatching = true,
+                consumedWords = directResult.consumedWords,
+                confidence = directResult.confidence()
             )
         }
 
-        var bestResult: CandidateMatch? = null
         if (speechWords.size >= 2) {
-            val searchLimit = minOf(currentIndex + MAX_LOOKAHEAD_WORDS, scriptWords.lastIndex)
-            for (searchIdx in currentIndex + 1..searchLimit) {
-                val searchResult = tryMatch(
-                    speechWords = speechWords,
-                    scriptWords = scriptWords,
-                    fromIndex = searchIdx,
-                    requiredRatio = LOOKAHEAD_MATCH_RATIO
+            val nearResult = bestSearchMatch(
+                speechWords = speechWords,
+                scriptWords = scriptWords,
+                searchStart = currentIndex + 1,
+                searchEnd = minOf(currentIndex + NEAR_LOOKAHEAD_WORDS, scriptWords.lastIndex),
+                requiredRatio = LOOKAHEAD_MATCH_RATIO,
+                minConfidence = NEAR_CONFIDENCE_THRESHOLD
+            )
+            println(
+                "SKIPDBG| MATCHER near found=${nearResult != null} " +
+                    (nearResult?.let { "ni=${it.newWordIndex} mc=${it.matchedCount} conf=${it.confidence()}" } ?: "")
+            )
+            if (nearResult != null) {
+                val capAdvance = nearResult.matchedCount < HIGH_CONFIDENCE_MATCH_COUNT
+                return MatchResult(
+                    newWordIndex = if (capAdvance) {
+                        nearResult.newWordIndex
+                            .coerceAtMost(currentIndex + MAX_ADVANCE_PER_MATCH)
+                    } else {
+                        nearResult.newWordIndex.coerceAtMost(scriptWords.size)
+                    },
+                    isMatching = true,
+                    consumedWords = nearResult.consumedWords,
+                    confidence = nearResult.confidence()
                 )
-                if (searchResult.isMatching && searchResult.matchedCount >= 2) {
-                    if (bestResult == null || searchResult.score > bestResult.score) {
-                        bestResult = searchResult
-                    }
-                }
             }
         }
 
-        bestResult?.let {
-            return it.toMatchResult(
-                currentIndex = currentIndex,
-                scriptSize = scriptWords.size,
-                capAdvance = it.matchedCount < HIGH_CONFIDENCE_MATCH_COUNT
+        if (speechWords.size >= 3) {
+            val farResult = bestSearchMatch(
+                speechWords = speechWords,
+                scriptWords = scriptWords,
+                searchStart = currentIndex + NEAR_LOOKAHEAD_WORDS + 1,
+                searchEnd = minOf(currentIndex + MAX_LOOKAHEAD_WORDS, scriptWords.lastIndex),
+                requiredRatio = LOOKAHEAD_MATCH_RATIO,
+                minConfidence = FAR_CONFIDENCE_THRESHOLD
             )
+            println(
+                "SKIPDBG| MATCHER far found=${farResult != null} " +
+                    (farResult?.let { "ni=${it.newWordIndex} mc=${it.matchedCount} conf=${it.confidence()}" } ?: "")
+            )
+            if (farResult != null) {
+                return MatchResult(
+                    newWordIndex = farResult.newWordIndex.coerceAtMost(scriptWords.size),
+                    isMatching = true,
+                    consumedWords = farResult.consumedWords,
+                    confidence = farResult.confidence()
+                )
+            }
+
+            val resyncResult = bestSearchMatch(
+                speechWords = speechWords,
+                scriptWords = scriptWords,
+                searchStart = currentIndex + MAX_LOOKAHEAD_WORDS + 1,
+                searchEnd = minOf(currentIndex + MAX_RESYNC_LOOKAHEAD_WORDS, scriptWords.lastIndex),
+                requiredRatio = RESYNC_MATCH_RATIO,
+                minConfidence = FAR_CONFIDENCE_THRESHOLD
+            )
+            println(
+                "SKIPDBG| MATCHER resync found=${resyncResult != null} " +
+                    (resyncResult?.let { "ni=${it.newWordIndex} mc=${it.matchedCount} conf=${it.confidence()}" } ?: "")
+            )
+            if (resyncResult != null) {
+                return MatchResult(
+                    newWordIndex = resyncResult.newWordIndex.coerceAtMost(scriptWords.size),
+                    isMatching = true,
+                    consumedWords = resyncResult.consumedWords,
+                    confidence = resyncResult.confidence()
+                )
+            }
         }
 
-        val resyncResult = findResyncMatch(
-            speechWords = speechWords,
-            scriptWords = scriptWords,
-            currentIndex = currentIndex
-        )
-        if (resyncResult != null) {
-            return resyncResult.toMatchResult(
-                currentIndex = currentIndex,
-                scriptSize = scriptWords.size,
-                capAdvance = false
-            )
-        }
-
+        println("SKIPDBG| MATCHER NO MATCH")
         return MatchResult(currentIndex, false)
     }
 
-    private fun findResyncMatch(
+    private fun bestSearchMatch(
         speechWords: List<String>,
         scriptWords: List<String>,
-        currentIndex: Int
+        searchStart: Int,
+        searchEnd: Int,
+        requiredRatio: Float,
+        minConfidence: Float
     ): CandidateMatch? {
-        if (speechWords.size < MIN_RESYNC_WORDS) return null
-
-        val searchStart = currentIndex + MAX_LOOKAHEAD_WORDS + 1
-        val searchEnd = minOf(currentIndex + MAX_RESYNC_LOOKAHEAD_WORDS, scriptWords.lastIndex)
         if (searchStart > searchEnd) return null
 
-        var bestResult: CandidateMatch? = null
+        var best: CandidateMatch? = null
         for (searchIdx in searchStart..searchEnd) {
             val searchResult = tryMatch(
                 speechWords = speechWords,
                 scriptWords = scriptWords,
                 fromIndex = searchIdx,
-                requiredRatio = RESYNC_MATCH_RATIO
+                requiredRatio = requiredRatio,
+                leading = 0
             )
-            if (searchResult.isMatching && searchResult.matchedCount >= MIN_RESYNC_WORDS) {
-                if (bestResult == null || searchResult.score > bestResult.score) {
-                    bestResult = searchResult
+            if (searchResult.isMatching && searchResult.confidence() >= minConfidence) {
+                if (best == null || searchResult.score > best.score) {
+                    best = searchResult
                 }
             }
         }
-
-        return bestResult
+        return best
     }
 
     private fun tryMatch(
         speechWords: List<String>,
         scriptWords: List<String>,
         fromIndex: Int,
-        requiredRatio: Float
+        requiredRatio: Float,
+        leading: Int
     ): CandidateMatch {
         var matchIndex = fromIndex
         var matchedCount = 0
         var missedAfterMatch = 0
+        var leadingMisses = 0
+        var processed = 0
 
         for (word in speechWords) {
             if (matchIndex >= scriptWords.size) break
+            processed++
 
             val scriptWord = scriptWords[matchIndex]
 
@@ -143,11 +198,17 @@ object SpeechMatcher {
                 }
                 else -> {
                     if (matchedCount == 0) {
-                        return CandidateMatch(fromIndex, 0, 0f, false)
-                    }
-                    missedAfterMatch++
-                    if (missedAfterMatch > 1) {
-                        break
+                        leadingMisses++
+                        if (leadingMisses > leading) {
+                            return CandidateMatch(
+                                fromIndex, 0, 0f, false, processed
+                            )
+                        }
+                    } else {
+                        missedAfterMatch++
+                        if (missedAfterMatch > 1) {
+                            break
+                        }
                     }
                 }
             }
@@ -158,33 +219,10 @@ object SpeechMatcher {
             newWordIndex = matchIndex,
             matchedCount = matchedCount,
             score = ratio,
-            isMatching = matchedCount > 0 && ratio >= requiredRatio
+            isMatching = matchedCount > 0 && ratio >= requiredRatio,
+            consumedWords = processed
         )
     }
-
-    private fun tokenize(text: String): List<String> =
-        text
-            .lowercase()
-            .trim()
-            .split("\\s+".toRegex())
-            .map(::normalize)
-            .filter { it.isNotBlank() && it !in fillers }
-
-    private fun CandidateMatch.toMatchResult(
-        currentIndex: Int,
-        scriptSize: Int,
-        capAdvance: Boolean
-    ): MatchResult =
-        MatchResult(
-            newWordIndex = if (capAdvance) {
-                newWordIndex.coerceAtMost(
-                    minOf(scriptSize, currentIndex + MAX_ADVANCE_PER_MATCH)
-                )
-            } else {
-                newWordIndex.coerceAtMost(scriptSize)
-            },
-            isMatching = isMatching
-        )
 
     private fun wordsSimilar(a: String, b: String): Boolean {
         val na = normalize(a)
@@ -211,8 +249,11 @@ object SpeechMatcher {
         val newWordIndex: Int,
         val matchedCount: Int,
         val score: Float,
-        val isMatching: Boolean
-    )
+        val isMatching: Boolean,
+        val consumedWords: Int
+    ) {
+        fun confidence(): Float = matchedCount * score
+    }
 
     private fun levenshtein(a: String, b: String): Int {
         val dp = IntArray(b.length + 1) { it }
