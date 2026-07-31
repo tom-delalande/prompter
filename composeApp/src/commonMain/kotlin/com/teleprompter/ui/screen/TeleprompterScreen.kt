@@ -117,6 +117,7 @@ fun TeleprompterScreen(
                 .fillMaxSize()
                 .zIndex(if (isCameraPip) 0f else 1f),
             pipEndPadding = pipEndPadding,
+            isLandscape = isLandscape,
             textDisplayStyle = textDisplayStyle
         )
 
@@ -199,6 +200,7 @@ private fun TeleprompterContent(
     scrollState: androidx.compose.foundation.ScrollState,
     modifier: Modifier = Modifier,
     pipEndPadding: Dp = 0.dp,
+    isLandscape: Boolean,
     textDisplayStyle: TextDisplayStyle,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -219,10 +221,12 @@ private fun TeleprompterContent(
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 120.dp, top = 48.dp)
+                .padding(
+                    bottom = if (isLandscape) 0.dp else 120.dp,
+                    top = if (isLandscape) 0.dp else 48.dp
+                )
         ) {
                 val textAreaDp = maxHeight
-                val isLandscape = maxWidth > maxHeight
                 val words = viewModel.script.words
                 val currentIndex = viewModel.currentWordIndex
 

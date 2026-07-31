@@ -389,7 +389,7 @@ def main():
 
     w = bbox[2] - bbox[0]
     h = bbox[3] - bbox[1]
-    target = 68.0
+    target = 54.0
     s = min(target / w, target / h) if w > 0 and h > 0 else 1.0
     offx = 54.0 - (bbox[0] + bbox[2]) / 2.0 * s
     offy = 54.0 - (bbox[1] + bbox[3]) / 2.0 * s
