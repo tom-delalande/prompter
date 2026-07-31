@@ -1,3 +1,3 @@
 - Reading ahead
-- Limit scripts
+- Custom text
 - IAP

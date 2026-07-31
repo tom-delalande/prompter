@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,7 +22,8 @@ fun ScriptListScreen(
     repository: ScriptRepository,
     onNewScript: () -> Unit,
     onEditScript: (Script) -> Unit,
-    onPlayScript: (Script) -> Unit
+    onPlayScript: (Script) -> Unit,
+    onOpenSettings: () -> Unit
 ) {
     var scripts by remember { mutableStateOf(repository.loadAll()) }
     var scriptToDelete by remember { mutableStateOf<Script?>(null) }
@@ -44,11 +47,16 @@ fun ScriptListScreen(
             TopAppBar(
                 title = { Text("My Scripts") },
                 actions = {
-                    IconButton(onClick = onNewScript) {
-                        Text("+", style = MaterialTheme.typography.headlineMedium)
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
             )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = onNewScript) {
+                Text("+", style = MaterialTheme.typography.headlineMedium)
+            }
         }
     ) { padding ->
         if (scripts.isEmpty()) {

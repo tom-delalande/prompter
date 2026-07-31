@@ -3,17 +3,19 @@ package com.teleprompter
 import androidx.compose.runtime.*
 import com.teleprompter.data.PlatformStorage
 import com.teleprompter.data.ScriptRepository
+import com.teleprompter.data.SettingsRepository
 import com.teleprompter.model.Script
 import com.teleprompter.recording.CameraRecorder
 import com.teleprompter.speech.SpeechRecognizer
 import com.teleprompter.ui.screen.ScriptEditorScreen
 import com.teleprompter.ui.screen.ScriptListScreen
+import com.teleprompter.ui.screen.SettingsScreen
 import com.teleprompter.ui.screen.TeleprompterScreen
 import com.teleprompter.ui.theme.TeleprompterTheme
 import com.teleprompter.viewmodel.TeleprompterViewModel
 
 enum class Screen {
-    ScriptList, ScriptEditor, Teleprompter
+    ScriptList, ScriptEditor, Teleprompter, Settings
 }
 
 @Composable
@@ -24,6 +26,7 @@ fun App(
     onSaveToPhotos: (String) -> Unit
 ) {
     val repository = remember { ScriptRepository(platformStorage) }
+    val settingsRepository = remember { SettingsRepository(platformStorage) }
 
     var currentScreen by remember { mutableStateOf(Screen.ScriptList) }
     var editingScriptId by remember { mutableStateOf<String?>(null) }
@@ -51,7 +54,8 @@ fun App(
                         )
                         previousScreenBeforeTeleprompter = currentScreen
                         currentScreen = Screen.Teleprompter
-                    }
+                    },
+                    onOpenSettings = { currentScreen = Screen.Settings }
                 )
             }
 
@@ -69,6 +73,13 @@ fun App(
                         previousScreenBeforeTeleprompter = currentScreen
                         currentScreen = Screen.Teleprompter
                     }
+                )
+            }
+
+            Screen.Settings -> {
+                SettingsScreen(
+                    settingsRepository = settingsRepository,
+                    onBack = { currentScreen = Screen.ScriptList }
                 )
             }
 
