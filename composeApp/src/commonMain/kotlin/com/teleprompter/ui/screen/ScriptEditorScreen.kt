@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.teleprompter.data.ScriptRepository
 import com.teleprompter.model.Script
+import com.teleprompter.ui.SystemBackHandler
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -72,29 +73,31 @@ fun ScriptEditorScreen(
         bodySize = 16.sp,
     )
 
+    SystemBackHandler(onBack = { save(); onBack() })
+
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = { save(); onBack() }) {
-                        Text("←", style = MaterialTheme.typography.headlineSmall)
-                    }
-                },
-                actions = {
-                    if (text.isNotBlank()) {
-                        TextButton(onClick = { save(); onPlay(currentScript()) }) {
-                            Text("Play")
+            containerColor = MaterialTheme.colorScheme.background,
+            topBar = {
+                TopAppBar(
+                    title = {},
+                    navigationIcon = {
+                        IconButton(onClick = { save(); onBack() }) {
+                            Text("←", style = MaterialTheme.typography.headlineSmall)
                         }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
+                    },
+                    actions = {
+                        if (text.isNotBlank()) {
+                            TextButton(onClick = { save(); onPlay(currentScript()) }) {
+                                Text("Play")
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                    )
                 )
-            )
-        }
-    ) { padding ->
+            }
+        ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()

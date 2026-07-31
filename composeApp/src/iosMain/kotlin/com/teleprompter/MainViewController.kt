@@ -12,14 +12,7 @@ fun MainViewController(): UIViewController {
             platformStorage = PlatformStorage(),
             speechRecognizerFactory = { IOSSpeechRecognizer() },
             cameraRecorderFactory = { IOSCameraRecorder() },
-            onSaveToPhotos = { /* iOS — save to photo library */ },
-            onShare = { filePath -> shareOnIOS(filePath) },
-            onDeleteFile = { filePath -> /* iOS — delete file */ }
+            onSaveToPhotos = { /* iOS — save to photo library */ }
         )
     }
-}
-
-private fun shareOnIOS(filePath: String) {
-    // iOS sharing would be implemented using UIActivityViewController
-    // This requires the current UIViewController context
 }

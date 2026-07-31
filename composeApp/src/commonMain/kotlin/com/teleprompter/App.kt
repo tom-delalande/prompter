@@ -21,15 +21,14 @@ fun App(
     platformStorage: PlatformStorage,
     speechRecognizerFactory: () -> SpeechRecognizer,
     cameraRecorderFactory: () -> CameraRecorder,
-    onSaveToPhotos: (String) -> Unit,
-    onShare: (String) -> Unit,
-    onDeleteFile: (String) -> Unit
+    onSaveToPhotos: (String) -> Unit
 ) {
     val repository = remember { ScriptRepository(platformStorage) }
 
     var currentScreen by remember { mutableStateOf(Screen.ScriptList) }
     var editingScriptId by remember { mutableStateOf<String?>(null) }
     var teleprompterViewModel by remember { mutableStateOf<TeleprompterViewModel?>(null) }
+    var previousScreenBeforeTeleprompter by remember { mutableStateOf(Screen.ScriptList) }
 
     TeleprompterTheme {
         when (currentScreen) {
@@ -50,6 +49,7 @@ fun App(
                             speechRecognizer = speechRecognizerFactory(),
                             cameraRecorder = cameraRecorderFactory(),
                         )
+                        previousScreenBeforeTeleprompter = currentScreen
                         currentScreen = Screen.Teleprompter
                     }
                 )
@@ -66,6 +66,7 @@ fun App(
                             speechRecognizer = speechRecognizerFactory(),
                             cameraRecorder = cameraRecorderFactory(),
                         )
+                        previousScreenBeforeTeleprompter = currentScreen
                         currentScreen = Screen.Teleprompter
                     }
                 )
@@ -79,9 +80,11 @@ fun App(
                             teleprompterViewModel = null
                             currentScreen = Screen.ScriptList
                         },
-                        onSaveToPhotos = { filePath -> onSaveToPhotos(filePath) },
-                        onShare = { filePath -> onShare(filePath) },
-                        onDeleteFile = { filePath -> onDeleteFile(filePath) }
+                        onSwipeBack = {
+                            teleprompterViewModel = null
+                            currentScreen = previousScreenBeforeTeleprompter
+                        },
+                        onSaveToPhotos = { filePath -> onSaveToPhotos(filePath) }
                     )
                 }
             }

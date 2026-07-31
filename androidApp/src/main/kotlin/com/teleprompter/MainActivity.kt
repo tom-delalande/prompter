@@ -1,7 +1,6 @@
 package com.teleprompter
 
 import android.content.ContentValues
-import android.content.Intent
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
@@ -9,7 +8,6 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.core.content.FileProvider
 import com.teleprompter.data.PlatformStorage
 import com.teleprompter.recording.AndroidCameraRecorder
 import com.teleprompter.speech.MLKitSpeechRecognizer
@@ -25,9 +23,7 @@ class MainActivity : ComponentActivity() {
                 platformStorage = PlatformStorage(this),
                 speechRecognizerFactory = { MLKitSpeechRecognizer(this@MainActivity) },
                 cameraRecorderFactory = { AndroidCameraRecorder(this) },
-                onSaveToPhotos = { filePath -> saveToPhotos(filePath) },
-                onShare = { filePath -> share(filePath) },
-                onDeleteFile = { filePath -> deleteRecording(filePath) }
+                onSaveToPhotos = { filePath -> saveToPhotos(filePath) }
             )
         }
     }
@@ -45,7 +41,7 @@ class MainActivity : ComponentActivity() {
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, file.name)
             put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-            put(MediaStore.Video.Media.RELATIVE_PATH, "${Environment.DIRECTORY_DCIM}/Camera")
+            put(MediaStore.Video.Media.RELATIVE_PATH, "${Environment.DIRECTORY_DCIM}/Teleprompter")
         }
 
         println("SAVE: inserting into MediaStore with DISPLAY_NAME=${file.name}")
@@ -73,27 +69,5 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun share(filePath: String) {
-        val file = File(filePath)
-        if (!file.exists()) {
-            Toast.makeText(this, "File not found", Toast.LENGTH_SHORT).show()
-            return
-        }
 
-        val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "video/mp4"
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        startActivity(Intent.createChooser(intent, "Share video"))
-    }
-
-    private fun deleteRecording(filePath: String) {
-        val file = File(filePath)
-        if (file.exists()) {
-            file.delete()
-            Toast.makeText(this, "Recording deleted", Toast.LENGTH_SHORT).show()
-        }
-    }
 }

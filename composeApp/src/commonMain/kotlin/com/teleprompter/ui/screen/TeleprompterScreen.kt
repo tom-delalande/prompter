@@ -11,7 +11,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -25,27 +24,26 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.teleprompter.recording.CameraRecorder
+import com.teleprompter.ui.SystemBackHandler
 import com.teleprompter.viewmodel.TeleprompterViewModel
 
 @Composable
 fun TeleprompterScreen(
     viewModel: TeleprompterViewModel,
     onBack: () -> Unit,
+    onSwipeBack: () -> Unit = onBack,
     onSaveToPhotos: (String) -> Unit,
-    onShare: (String) -> Unit,
-    onDeleteFile: (String) -> Unit,
 ) {
     val scrollState = rememberScrollState()
     var isPipMode by remember { mutableStateOf(false) }
-    var showRecordingMenu by remember { mutableStateOf(false) }
-    var showDeleteConfirmation by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel.lastRecordedFile) {
-        println("STOPFLOW: lastRecordedFile changed to ${viewModel.lastRecordedFile}")
         if (viewModel.lastRecordedFile != null) {
             viewModel.isRecording = false
             viewModel.isPlaying = false
-            showRecordingMenu = true
+            viewModel.lastRecordedFile?.let { onSaveToPhotos(it) }
+            viewModel.destroy()
+            onBack()
         }
     }
 
@@ -63,45 +61,13 @@ fun TeleprompterScreen(
         }
     }
 
-    if (showDeleteConfirmation) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirmation = false },
-            title = { Text("Delete Recording", fontWeight = FontWeight.Bold) },
-            text = {
-                Text(
-                    "Are you sure you want to delete this recording? This action cannot be undone.",
-                    color = Color.Gray
-                )
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.lastRecordedFile?.let { onDeleteFile(it) }
-                        viewModel.clearLastRecording()
-                        showDeleteConfirmation = false
-                        showRecordingMenu = false
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFFF5252),
-                        contentColor = Color.White
-                    )
-                ) {
-                    Text("Delete")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirmation = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
+        SystemBackHandler(onBack = onSwipeBack)
+
         val isLandscape = maxWidth > maxHeight
         val isCameraPip = isPipMode
 
@@ -155,7 +121,8 @@ fun TeleprompterScreen(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .zIndex(4f)
-                .padding(top = 48.dp, start = 24.dp)
+                .statusBarsPadding()
+                .padding(start = 8.dp, top = 8.dp)
         ) {
             Text("\u2715", fontSize = 24.sp, color = Color.White)
         }
@@ -188,65 +155,6 @@ fun TeleprompterScreen(
                     .padding(bottom = 120.dp, start = 16.dp, end = 16.dp)
             ) {
                 Text(error)
-            }
-        }
-    }
-
-    if (showRecordingMenu) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.5f))
-                .clickable { showRecordingMenu = false },
-            contentAlignment = Alignment.Center
-        ) {
-            Card(
-                modifier = Modifier
-                    .widthIn(min = 280.dp, max = 400.dp)
-                    .clickable(enabled = false) {},
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E))
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Button(
-                        onClick = {
-                            println("SAVE: lastRecordedFile=${viewModel.lastRecordedFile}")
-                            viewModel.lastRecordedFile?.let { onSaveToPhotos(it) }
-                            showRecordingMenu = false
-                        },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Save to Photos", fontSize = 16.sp)
-                    }
-
-                    Button(
-                        onClick = {
-                            viewModel.lastRecordedFile?.let { onShare(it) }
-                            showRecordingMenu = false
-                        },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Share", fontSize = 16.sp)
-                    }
-
-                    Button(
-                        onClick = { showDeleteConfirmation = true },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFFF5252),
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Text("Delete", fontSize = 16.sp)
-                    }
-
-                }
             }
         }
     }
