@@ -12,6 +12,7 @@ local.properties
 # Kotlin
 *.class
 *.kotlin_module
+.kotlin/
 
 # Android
 androidApp/build/
@@ -27,3 +28,4 @@ iosApp/DerivedData/
 *.log
 *.tmp
 .cache/
+*~lock~

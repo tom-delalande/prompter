@@ -12,8 +12,8 @@ object SpeechMatcher {
     private const val HIGH_CONFIDENCE_MATCH_COUNT = 3
     private const val DIRECT_MATCH_RATIO = 0.5f
     private const val LOOKAHEAD_MATCH_RATIO = 0.75f
-    private const val RESYNC_MATCH_RATIO = 0.85f
-    private const val MIN_RESYNC_WORDS = 3
+    private const val RESYNC_MATCH_RATIO = 0.70f
+    private const val MIN_RESYNC_WORDS = 2
 
     private val fillers = setOf(
         "um", "uh", "ah", "er", "hmm"

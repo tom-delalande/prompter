@@ -126,22 +126,27 @@ class TeleprompterViewModel(
             currentWordIndex = minOf(result.newWordIndex, script.wordCount())
             updateScrollOffset()
             resyncBuffer.clear()
+            println("MATCH: incremental success idx=$currentWordIndex words='$newWords'")
             return
         }
+
+        println("MATCH: incremental fail at idx=$currentWordIndex words='$newWords'")
 
         val newWordList = newWords.lowercase().trim()
             .split("\\s+".toRegex())
             .filter { it.isNotBlank() }
         resyncBuffer.addAll(newWordList)
 
-        if (resyncBuffer.size >= 3) {
+        if (resyncBuffer.size >= 2) {
             val bufferText = resyncBuffer.joinToString(" ")
             val resyncResult = SpeechMatcher.match(bufferText, script.words, currentWordIndex)
+            println("MATCH: buffer(${resyncBuffer.size}) '$bufferText' -> isMatch=${resyncResult.isMatching} newIdx=${resyncResult.newWordIndex}")
             if (resyncResult.isMatching && resyncResult.newWordIndex > currentWordIndex) {
                 currentWordIndex = minOf(resyncResult.newWordIndex, script.wordCount())
                 updateScrollOffset()
                 isMatching = true
                 resyncBuffer.clear()
+                println("MATCH: buffer success idx=$currentWordIndex")
                 return
             }
         }
