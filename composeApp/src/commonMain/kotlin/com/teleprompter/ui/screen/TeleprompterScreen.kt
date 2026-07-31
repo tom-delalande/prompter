@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.teleprompter.model.CameraMode
 import com.teleprompter.recording.CameraRecorder
 import com.teleprompter.ui.SystemBackHandler
 import com.teleprompter.viewmodel.TeleprompterViewModel
@@ -30,12 +31,13 @@ import com.teleprompter.viewmodel.TeleprompterViewModel
 @Composable
 fun TeleprompterScreen(
     viewModel: TeleprompterViewModel,
+    defaultCameraMode: CameraMode,
     onBack: () -> Unit,
     onSwipeBack: () -> Unit = onBack,
     onSaveToPhotos: (String) -> Unit,
 ) {
     val scrollState = rememberScrollState()
-    var isPipMode by remember { mutableStateOf(false) }
+    var isPipMode by remember { mutableStateOf(defaultCameraMode == CameraMode.PictureInPicture) }
 
     LaunchedEffect(viewModel.lastRecordedFile) {
         if (viewModel.lastRecordedFile != null) {
@@ -53,12 +55,6 @@ fun TeleprompterScreen(
         if (maxScroll <= 0) return@LaunchedEffect
         val ratio = viewModel.currentWordIndex.toFloat() / viewModel.script.wordCount().toFloat()
         scrollState.animateScrollTo((maxScroll * ratio).toInt())
-    }
-
-    LaunchedEffect(viewModel.isRecording) {
-        if (viewModel.isRecording) {
-            isPipMode = true
-        }
     }
 
     BoxWithConstraints(
