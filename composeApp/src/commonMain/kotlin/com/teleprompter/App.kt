@@ -88,6 +88,7 @@ fun App(
                     TeleprompterScreen(
                         viewModel = vm,
                         defaultCameraMode = settingsRepository.load().defaultCameraMode,
+                        textDisplayStyle = settingsRepository.load().textDisplayStyle,
                         onBack = {
                             teleprompterViewModel = null
                             currentScreen = Screen.ScriptList

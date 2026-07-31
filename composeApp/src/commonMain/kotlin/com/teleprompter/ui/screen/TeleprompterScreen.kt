@@ -15,7 +15,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
@@ -24,14 +30,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.teleprompter.model.CameraMode
+import com.teleprompter.model.TextDisplayStyle
 import com.teleprompter.recording.CameraRecorder
 import com.teleprompter.ui.SystemBackHandler
+import com.teleprompter.ui.fontFamilyFor
+import com.teleprompter.ui.parseHexColor
 import com.teleprompter.viewmodel.TeleprompterViewModel
 
 @Composable
 fun TeleprompterScreen(
     viewModel: TeleprompterViewModel,
     defaultCameraMode: CameraMode,
+    textDisplayStyle: TextDisplayStyle,
     onBack: () -> Unit,
     onSwipeBack: () -> Unit = onBack,
     onSaveToPhotos: (String) -> Unit,
@@ -106,7 +116,8 @@ fun TeleprompterScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(if (isCameraPip) 0f else 1f),
-            pipEndPadding = pipEndPadding
+            pipEndPadding = pipEndPadding,
+            textDisplayStyle = textDisplayStyle
         )
 
         IconButton(
@@ -188,6 +199,7 @@ private fun TeleprompterContent(
     scrollState: androidx.compose.foundation.ScrollState,
     modifier: Modifier = Modifier,
     pipEndPadding: Dp = 0.dp,
+    textDisplayStyle: TextDisplayStyle,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
         Box(
@@ -209,62 +221,87 @@ private fun TeleprompterContent(
                 .fillMaxSize()
                 .padding(bottom = 120.dp, top = 48.dp)
         ) {
-            val textAreaDp = maxHeight
-            val isLandscape = maxWidth > maxHeight
-            val words = viewModel.script.words
-            val currentIndex = viewModel.currentWordIndex
+                val textAreaDp = maxHeight
+                val isLandscape = maxWidth > maxHeight
+                val words = viewModel.script.words
+                val currentIndex = viewModel.currentWordIndex
 
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(scrollState)
-                    .padding(
-                        start = if (isLandscape) 56.dp else 28.dp,
-                        end = (if (isLandscape) 56.dp else 28.dp) + pipEndPadding
-                    )
-            ) {
-                Spacer(modifier = Modifier.height(textAreaDp / 2))
+                val textColor = parseHexColor(textDisplayStyle.textColorHex)
+                val borderColor = parseHexColor(textDisplayStyle.borderColorHex)
+                val fontSize = textDisplayStyle.fontSizeSp.sp
+                val fontFamily = fontFamilyFor(textDisplayStyle.fontFamily)
+                val lineHeight = (textDisplayStyle.fontSizeSp * 1.35f).sp
+                val density = LocalDensity.current
+                val borderWidthPx = with(density) { textDisplayStyle.borderWidthDp.dp.toPx() }
 
-                val annotatedString = buildAnnotatedString {
-                    words.forEachIndexed { index, word ->
-                        val isPast = index < currentIndex
-                        pushStringAnnotation("word", index.toString())
-                        if (isPast) {
-                            withStyle(
-                                SpanStyle(
-                                    color = Color.Gray,
-                                    fontSize = 42.sp
-                                )
-                            ) {
-                                append(word)
-                            }
-                        } else {
-                            withStyle(
-                                SpanStyle(
-                                    color = Color(0xFFCCCCCC),
-                                    fontSize = 42.sp
-                                )
-                            ) {
-                                append(word)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                        .padding(
+                            start = if (isLandscape) 56.dp else 28.dp,
+                            end = (if (isLandscape) 56.dp else 28.dp) + pipEndPadding
+                        )
+                ) {
+                    Spacer(modifier = Modifier.height(textAreaDp / 2))
+
+                    fun scriptString(colorFor: (isPast: Boolean) -> Color): AnnotatedString =
+                        buildAnnotatedString {
+                            words.forEachIndexed { index, word ->
+                                pushStringAnnotation("word", index.toString())
+                                withStyle(
+                                    SpanStyle(
+                                        color = colorFor(index < currentIndex),
+                                        fontSize = fontSize
+                                    )
+                                ) {
+                                    append(word)
+                                }
+                                append("   ")
                             }
                         }
-                        append("   ")
+
+                    val fillString = scriptString { isPast ->
+                        if (isPast) textColor.copy(alpha = 0.45f) else textColor
                     }
-                }
-                ClickableText(
-                    text = annotatedString,
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = { offset ->
-                        val annotations = annotatedString.getStringAnnotations("word", offset, offset)
+                    val strokeString = scriptString { borderColor }
+                    val baseStyle = TextStyle(
+                        fontSize = fontSize,
+                        lineHeight = lineHeight,
+                        fontFamily = fontFamily
+                    )
+                    val onWordClick: (Int) -> Unit = { offset ->
+                        val annotations = fillString.getStringAnnotations("word", offset, offset)
                         if (annotations.isNotEmpty()) {
                             viewModel.seekTo(annotations.first().item.toInt())
                         }
-                    },
-                    style = androidx.compose.ui.text.TextStyle(lineHeight = 58.sp)
-                )
+                    }
 
-                Spacer(modifier = Modifier.height(textAreaDp / 2))
-            }
+                    Box {
+                        if (textDisplayStyle.borderWidthDp > 0f) {
+                            ClickableText(
+                                text = strokeString,
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = onWordClick,
+                                style = baseStyle.copy(
+                                    drawStyle = Stroke(
+                                        width = borderWidthPx,
+                                        cap = StrokeCap.Round,
+                                        join = StrokeJoin.Round
+                                    )
+                                )
+                            )
+                        }
+                        ClickableText(
+                            text = fillString,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = onWordClick,
+                            style = baseStyle
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(textAreaDp / 2))
+                }
         }
     }
 }
