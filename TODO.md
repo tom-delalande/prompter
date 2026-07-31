@@ -1,6 +1,3 @@
-- dont close popup when clicking outside it
-- Swipe back
-- Close button broken
 - Reading ahead
 - Limit scripts
 - IAP

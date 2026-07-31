@@ -27,6 +27,7 @@ class TeleprompterViewModel(
     var isProcessing by mutableStateOf(false)
 
     private var accumulatedText = ""
+    private val resyncBuffer = mutableListOf<String>()
     private var recordingCounter = 0
     private var opCounter = 0L
     private var currentVideoPath = ""
@@ -74,6 +75,7 @@ class TeleprompterViewModel(
         isPlaying = true
         isMatching = true
         accumulatedText = ""
+        resyncBuffer.clear()
         speechRecognizer.setAudioOutputPath(currentAudioPath)
         speechRecognizer.startListening()
     }
@@ -123,6 +125,29 @@ class TeleprompterViewModel(
         if (result.isMatching) {
             currentWordIndex = minOf(result.newWordIndex, script.wordCount())
             updateScrollOffset()
+            resyncBuffer.clear()
+            return
+        }
+
+        val newWordList = newWords.lowercase().trim()
+            .split("\\s+".toRegex())
+            .filter { it.isNotBlank() }
+        resyncBuffer.addAll(newWordList)
+
+        if (resyncBuffer.size >= 3) {
+            val bufferText = resyncBuffer.joinToString(" ")
+            val resyncResult = SpeechMatcher.match(bufferText, script.words, currentWordIndex)
+            if (resyncResult.isMatching && resyncResult.newWordIndex > currentWordIndex) {
+                currentWordIndex = minOf(resyncResult.newWordIndex, script.wordCount())
+                updateScrollOffset()
+                isMatching = true
+                resyncBuffer.clear()
+                return
+            }
+        }
+
+        if (resyncBuffer.size > 30) {
+            resyncBuffer.removeAt(0)
         }
     }
 

@@ -6,13 +6,14 @@ data class MatchResult(
 )
 
 object SpeechMatcher {
-    private const val MAX_LOOKAHEAD_WORDS = 6
+    private const val MAX_LOOKAHEAD_WORDS = 30
     private const val MAX_RESYNC_LOOKAHEAD_WORDS = 120
     private const val MAX_ADVANCE_PER_MATCH = 12
+    private const val HIGH_CONFIDENCE_MATCH_COUNT = 3
     private const val DIRECT_MATCH_RATIO = 0.5f
     private const val LOOKAHEAD_MATCH_RATIO = 0.75f
     private const val RESYNC_MATCH_RATIO = 0.85f
-    private const val MIN_RESYNC_WORDS = 4
+    private const val MIN_RESYNC_WORDS = 3
 
     private val fillers = setOf(
         "um", "uh", "ah", "er", "hmm"
@@ -69,7 +70,7 @@ object SpeechMatcher {
             return it.toMatchResult(
                 currentIndex = currentIndex,
                 scriptSize = scriptWords.size,
-                capAdvance = true
+                capAdvance = it.matchedCount < HIGH_CONFIDENCE_MATCH_COUNT
             )
         }
 
