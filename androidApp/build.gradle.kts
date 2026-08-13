@@ -13,11 +13,11 @@ val keystoreProperties = Properties().apply {
 }
 
 android {
-    namespace = "com.teleprompter"
+    namespace = "co.delalande.prompter"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.teleprompter"
+        applicationId = "co.delalande.prompter"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

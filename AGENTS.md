@@ -28,7 +28,7 @@ Kotlin Compose Multiplatform teleprompter app for Android & iOS. Records video +
 teleprompter/
 ├── composeApp/                          # KMP shared library
 │   └── src/
-│       ├── commonMain/kotlin/com/teleprompter/
+│       ├── commonMain/kotlin/co/delalande/prompter/
 │       │   ├── App.kt                   # Root composable, screen navigation
 │       │   ├── data/
 │       │   │   ├── PlatformStorage.kt   # expect file I/O interface
@@ -46,7 +46,7 @@ teleprompter/
 │       │   │   └── theme/Theme.kt      # Dark theme only
 │       │   └── viewmodel/TeleprompterViewModel.kt  # All recording/scroll logic
 │       │
-│       ├── androidMain/kotlin/com/teleprompter/
+│       ├── androidMain/kotlin/co/delalande/prompter/
 │       │   ├── data/PlatformStorage.android.kt   # Android file I/O
 │       │   ├── recording/
 │       │   │   ├── CameraPreview.android.kt      # CameraX preview + permissions
@@ -57,7 +57,7 @@ teleprompter/
 │       │   │   └── WhisperSpeechRecognizer.kt    # OpenAI Whisper API (unused)
 │       │   └── ui/screen/PlatformActual.kt       # PlatformCompositionContext
 │       │
-│       └── iosMain/kotlin/com/teleprompter/
+│       └── iosMain/kotlin/co/delalande/prompter/
 │           ├── data/PlatformStorage.ios.kt   # iOS file I/O
 │           ├── recording/CameraRecorder.ios.kt  # AVFoundation recorder
 │           ├── speech/SpeechRecognizer.ios.kt   # SFSpeechRecognizer
@@ -67,7 +67,7 @@ teleprompter/
 ├── androidApp/                          # Pure Android shell
 │   └── src/main/
 │       ├── AndroidManifest.xml          # Portrait+sensor, camera+audio+internet perms
-│       └── kotlin/com/teleprompter/
+│       └── kotlin/co/delalande/prompter/
 │           └── MainActivity.kt          # Creates Android implementations, handles share
 │
 ├── iosApp/                              # iOS shell (Xcode project)

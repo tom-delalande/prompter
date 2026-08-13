@@ -4,20 +4,20 @@ This guide walks through everything you need to do to ship **Prompter** (project
 
 ## Current state of the project
 
-| Item | Android | iOS |
-|---|---|---|
-| App identifiers | `com.teleprompter` (set) | Not set — no Xcode project exists yet |
-| Versioning | `versionCode 1`, `versionName "1.0"` (set) | `CFBundleShortVersionString 1.0`, `CFBundleVersion 1` (set) |
-| Release signing | **Missing** (falls back to debug keystore) | **Missing** (no team / certificates) |
-| Xcode project | n/a | **Missing from repo entirely** |
-| App icons | Present (mipmaps) | Present (`AppIcon.appiconset`, incl. 1024px) |
-| Store screenshots | Missing | Missing |
-| Store metadata | Partial (`fastlane/metadata/android`) | Missing |
-| Privacy policy URL | **Missing (required)** | **Missing (required)** |
-| In-app purchases | Products `com.teleprompter.tip10` / `com.teleprompter.tip25` referenced in code, **not created in Play Console** | Same product IDs, **not created in App Store Connect** |
+| Item               | Android                                                                                                                    | iOS                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| App identifiers    | `co.delalande.prompter` (set)                                                                                              | Not set — no Xcode project exists yet                       |
+| Versioning         | `versionCode 1`, `versionName "1.0"` (set)                                                                                 | `CFBundleShortVersionString 1.0`, `CFBundleVersion 1` (set) |
+| Release signing    | **Missing** (falls back to debug keystore)                                                                                 | **Missing** (no team / certificates)                        |
+| Xcode project      | n/a                                                                                                                        | **Missing from repo entirely**                              |
+| App icons          | Present (mipmaps)                                                                                                          | Present (`AppIcon.appiconset`, incl. 1024px)                |
+| Store screenshots  | Missing                                                                                                                    | Missing                                                     |
+| Store metadata     | Partial (`fastlane/metadata/android`)                                                                                      | Missing                                                     |
+| Privacy policy URL | **Missing (required)**                                                                                                     | **Missing (required)**                                      |
+| In-app purchases   | Products `co.delalande.prompter.tip10` / `co.delalande.prompter.tip25` referenced in code, **not created in Play Console** | Same product IDs, **not created in App Store Connect**      |
 
 > Two hard deadlines to keep in mind (today is 2026-07-31):
-> - **Google Play**: from **Aug 31, 2026**, new apps must target **Android 16 / API 36**. The repo currently targets 35 — bump it before submitting (see below). Extension to Nov 1, 2026 is possible but don't rely on it.
+>
 > - **App Store**: since **Apr 28, 2026**, builds must be made with **Xcode 26+** (iOS 26 SDK).
 
 ---
@@ -40,14 +40,10 @@ This guide walks through everything you need to do to ship **Prompter** (project
 ### 1.1 Account & first app
 
 1. Go to [play.google.com/console](https://play.google.com/console) and sign up (pay the $25 fee, verify identity/bank details — takes a few days to review).
-2. **Create app** → name it **Prompter**, language English (US), and enter your application ID: **`com.teleprompter`** (it must match `androidApp/build.gradle.kts` exactly).
+2. **Create app** → name it **Prompter**, language English (US), and enter your application ID: **`co.delalande.prompter`** (it must match `androidApp/build.gradle.kts` exactly).
 3. You'll be guided through the "App content" checklist: data safety, ads, content rating, target audience, etc.
 
 ### 1.2 Code changes needed before you can publish
-
-**a) Bump `targetSdk` to 36** (Play requirement from Aug 31, 2026).
-
-In `androidApp/build.gradle.kts` and `composeApp/build.gradle.kts`, change `compileSdk = 35` → `compileSdk = 36` and `targetSdk = 35` → `targetSdk = 36`. Install SDK Platform 36 in Android Studio first. Test on an API 36 emulator (Android 16 enforces edge-to-edge, which Compose handles, but verify camera + audio recording still behave).
 
 **b) Add release signing.** Without this, `assembleRelease`/`bundleRelease` is signed with the debug keystore and Play will reject it. Generate a keystore:
 
@@ -113,14 +109,14 @@ Output: `androidApp/build/outputs/bundle/release/androidApp-release.aab`. Upload
 
 ### 1.6 In-app purchases (tips)
 
-The code queries two consumable products (`BillingManager.kt:12-13`): **`com.teleprompter.tip10`** and **`com.teleprompter.tip25`**. In **Play Console → Monetize → Products → In-app products**, create both:
+The code queries two consumable products (`BillingManager.kt:12-13`): **`co.delalande.prompter.tip10`** and **`co.delalande.prompter.tip25`**. In **Play Console → Monetize → Products → In-app products**, create both:
 
 - Product ID must match exactly.
 - Type: **Consumable** (the app treats them as one-time tips).
 - Price, title, description.
 - `AndroidBillingManager` connects lazily on the script list screen (`ScriptListScreen.kt:46-47`), so the products just need to be active and the app's billing status "ready" for the purchase button to work.
 
-> Note: Google Play policy requires all digital goods to use Play Billing (they do). If you later gate any *feature* behind a purchase instead of it being a donation-style tip, the tip semantics need to match the listing.
+> Note: Google Play policy requires all digital goods to use Play Billing (they do). If you later gate any _feature_ behind a purchase instead of it being a donation-style tip, the tip semantics need to match the listing.
 
 ### 1.7 Testing → Production
 
@@ -136,19 +132,22 @@ Google now requires a **closed test** for new personal developer accounts before
 
 ### 2.0 Important: there is no Xcode project in the repo
 
-The repo contains only the iOS *sources* (`iosApp/iosApp/` — `iOSApp.swift`, `ContentView.swift`, `Info.plist`, `Assets.xcassets`). There is **no `.xcodeproj`**, and `embedAndSignAppleFrameworkForXcode` is not wired up, so nothing can be archived for the App Store yet. You must create the Xcode project that:
+The repo contains only the iOS _sources_ (`iosApp/iosApp/` — `iOSApp.swift`, `ContentView.swift`, `Info.plist`, `Assets.xcassets`). There is **no `.xcodeproj`**, and `embedAndSignAppleFrameworkForXcode` is not wired up, so nothing can be archived for the App Store yet. You must create the Xcode project that:
 
-1. **Builds the Kotlin framework**: add a **Run Script** build phase (placed *before* Compile Sources) with:
+1. **Builds the Kotlin framework**: add a **Run Script** build phase (placed _before_ Compile Sources) with:
+
    ```sh
    cd "$SRCROOT/.."
    ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode
    ```
+
    (`$SRCROOT` here points into `iosApp/`, so the `..` resolves to the repo root.)
+
 2. **Links `ComposeApp.framework`**: set Framework Search Paths to
    `$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)`
    and add `ComposeApp.framework` to **Frameworks, Libraries, and Embedded Content**.
 3. **Includes the existing files**: `iOSApp.swift`, `ContentView.swift`, `Info.plist`, `Assets.xcassets`.
-4. Sets `PRODUCT_BUNDLE_IDENTIFIER` (e.g. `com.teleprompter` — must be globally unique and match what you register with Apple) and your development team for signing.
+4. Sets `PRODUCT_BUNDLE_IDENTIFIER` (e.g. `co.delalande.prompter` — must be globally unique and match what you register with Apple) and your development team for signing.
 
 If you don't want to hand-assemble the project, [XcodeGen](https://github.com/yonaskolb/XcodeGen) or a `project.yml` committed to the repo is a cleaner route. Check the official guide: [Build a KMP app with the embedAndSignAppleFrameworkForXcode task](https://kotlinlang.org/docs/multiplatform-integrate-in-existing-app.html).
 
@@ -159,11 +158,12 @@ If you don't want to hand-assemble the project, [XcodeGen](https://github.com/yo
 ### 2.1 Account & App ID
 
 1. Join the **Apple Developer Program** at [developer.apple.com](https://developer.apple.com).
-2. In **Certificates, Identifiers & Profiles → Identifiers**, register an **App ID** (explicit bundle ID, e.g. `com.teleprompter`) and enable **Capabilities**: *Sign in with Apple* is **not** required, but this app uses no special capabilities beyond what the Info.plist permissions cover (camera, mic, speech recognition usage strings are already present).
+2. In **Certificates, Identifiers & Profiles → Identifiers**, register an **App ID** (explicit bundle ID, e.g. `co.delalande.prompter`) and enable **Capabilities**: _Sign in with Apple_ is **not** required, but this app uses no special capabilities beyond what the Info.plist permissions cover (camera, mic, speech recognition usage strings are already present).
 
 ### 2.2 Create the Xcode project & set signing
 
 Following 2.0, create the project, set:
+
 - `PRODUCT_BUNDLE_IDENTIFIER` = your registered App ID.
 - **Signing** = your developer team, **Automatically manage signing** (easiest for a solo dev).
 - Minimum deployment target — pick something like iOS 15–16 (the Kotlin framework supports it; iOS 26 SDK requirement only affects the build SDK, not the min version).
@@ -178,13 +178,13 @@ Build for a simulator, then a device, and confirm recording + voice-driven scrol
 
 ### 2.4 In-app purchases (tips)
 
-Same two product IDs, **`com.teleprompter.tip10`** and **`com.teleprompter.tip25`**, in **App Store Connect → My Apps → App → Monetization → In-App Purchases → Consumable**:
+Same two product IDs, **`co.delalande.prompter.tip10`** and **`co.delalande.prompter.tip25`**, in **App Store Connect → My Apps → App → Monetization → In-App Purchases → Consumable**:
 
 - Reference name + product ID must match the code exactly.
 - Set **price tiers** (App Store Connect uses price points, not raw amounts).
 - Complete the **Paid Apps Agreement / banking & tax** in App Store Connect — required before any paid IAP can go live.
 
-`IOSBillingManager` (`composeApp/src/iosMain/kotlin/com/teleprompter/billing/IOSBillingManager.kt`) mirrors the Android flow, so once the products exist and the agreement is signed, tips work as-is.
+`IOSBillingManager` (`composeApp/src/iosMain/kotlin/co/delalande/prompter/billing/IOSBillingManager.kt`) mirrors the Android flow, so once the products exist and the agreement is signed, tips work as-is.
 
 ### 2.5 Archive & upload
 

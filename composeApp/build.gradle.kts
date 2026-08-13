@@ -11,7 +11,7 @@ kotlin {
         freeCompilerArgs.add("-Xexpect-actual-classes")
     }
     android {
-        namespace = "com.teleprompter.shared"
+        namespace = "co.delalande.prompter.shared"
         compileSdk = 36
         minSdk = 26
 
@@ -39,6 +39,7 @@ kotlin {
             implementation(compose.material3)
             implementation(compose.ui)
             implementation("org.jetbrains.compose.material:material-icons-core:1.7.3")
+            implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
             implementation(libs.kotlinx.serialization.json)
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
         }

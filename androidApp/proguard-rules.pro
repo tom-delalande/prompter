@@ -1,4 +1,4 @@
--keep class com.teleprompter.** { *; }
+-keep class co.delalande.prompter.** { *; }
 
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
@@ -15,10 +15,10 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
--keep,includedescriptorclasses class com.teleprompter.**$$serializer { *; }
--keepclassmembers class com.teleprompter.** {
+-keep,includedescriptorclasses class co.delalande.prompter.**$$serializer { *; }
+-keepclassmembers class co.delalande.prompter.** {
     *** Companion;
 }
--keepclasseswithmembers class com.teleprompter.** {
+-keepclasseswithmembers class co.delalande.prompter.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
