@@ -121,6 +121,28 @@ object SpeechMatcher {
             }
         }
 
+        // Proceed bias: when the speaker is clearly talking (≥2 words) but no confident
+        // match was found, advance by however many words still loosely align with the
+        // script. This keeps the scroll moving instead of stalling on uncertain speech.
+        if (speechWords.size >= 2) {
+            val looseResult = tryMatch(
+                speechWords = speechWords,
+                scriptWords = scriptWords,
+                fromIndex = currentIndex,
+                requiredRatio = 0f,
+                leading = 3
+            )
+            if (looseResult.matchedCount >= 1) {
+                return MatchResult(
+                    newWordIndex = looseResult.newWordIndex
+                        .coerceAtMost(currentIndex + MAX_ADVANCE_PER_MATCH),
+                    isMatching = true,
+                    consumedWords = looseResult.consumedWords,
+                    confidence = looseResult.confidence()
+                )
+            }
+        }
+
         return MatchResult(currentIndex, false)
     }
 

@@ -1,6 +1,9 @@
 package co.delalande.prompter
 
 import android.content.ContentValues
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
@@ -10,68 +13,97 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import co.delalande.prompter.billing.AndroidBillingManager
 import co.delalande.prompter.data.PlatformStorage
+import co.delalande.prompter.model.SaveResult
 import co.delalande.prompter.recording.AndroidCameraRecorder
 import co.delalande.prompter.speech.MLKitSpeechRecognizer
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
         setContent {
             App(
-                platformStorage = PlatformStorage(this),
+                platformStorage = PlatformStorage(this@MainActivity),
                 speechRecognizerFactory = { MLKitSpeechRecognizer(this@MainActivity) },
-                cameraRecorderFactory = { AndroidCameraRecorder(this) },
+                cameraRecorderFactory = { AndroidCameraRecorder(this@MainActivity) },
                 billingManagerFactory = {
                     AndroidBillingManager(this@MainActivity, PlatformStorage(this@MainActivity))
                 },
-                onSaveToPhotos = { filePath -> saveToPhotos(filePath) }
+                onSaveToPhotos = { filePath, onDone ->
+                    Thread {
+                        val result = try {
+                            SaveResult(uri = saveVideoToMediaStore(filePath).toString())
+                        } catch (e: Exception) {
+                            SaveResult(error = e.message ?: "Unknown error")
+                        }
+                        runOnUiThread { onDone(result) }
+                    }.start()
+                },
+                onOpenVideo = { uriString -> openVideo(uriString) }
             )
         }
     }
 
-    private fun saveToPhotos(filePath: String) {
-        println("SAVE: saveToPhotos called with filePath=$filePath")
+    private fun openVideo(uriString: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(Uri.parse(uriString), "video/mp4")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not open video", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun saveVideoToMediaStore(filePath: String): Uri {
         val file = File(filePath)
         if (!file.exists()) {
-            println("SAVE: file does NOT exist at $filePath")
-            Toast.makeText(this, "File not found", Toast.LENGTH_SHORT).show()
-            return
+            throw IOException("File not found")
         }
-        println("SAVE: file exists, length=${file.length()}")
 
         val values = ContentValues().apply {
             put(MediaStore.Video.Media.DISPLAY_NAME, file.name)
             put(MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-            put(MediaStore.Video.Media.RELATIVE_PATH, "${Environment.DIRECTORY_DCIM}/Teleprompter")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.Video.Media.RELATIVE_PATH, "${Environment.DIRECTORY_DCIM}/Teleprompter")
+                put(MediaStore.Video.Media.IS_PENDING, 1)
+            }
         }
 
-        println("SAVE: inserting into MediaStore with DISPLAY_NAME=${file.name}")
         val uri = contentResolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-        if (uri != null) {
-            println("SAVE: got uri=$uri")
-            try {
-                val outputStream = contentResolver.openOutputStream(uri)
-                println("SAVE: outputStream=$outputStream")
-                outputStream?.use { output ->
-                    file.inputStream().use { input ->
-                        val bytesCopied = input.copyTo(output)
-                        println("SAVE: copied $bytesCopied bytes")
+            ?: throw IOException("Failed to create MediaStore entry")
+
+        try {
+            contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
+                FileOutputStream(pfd.fileDescriptor).use { fos ->
+                    file.inputStream().use { fis ->
+                        val inChannel = fis.channel
+                        val outChannel = fos.channel
+                        val size = inChannel.size()
+                        var position = 0L
+                        val chunk = 8L shl 20
+                        while (position < size) {
+                            position += inChannel.transferTo(position, chunk, outChannel)
+                        }
                     }
                 }
-                Toast.makeText(this, "Saved to Photos", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                println("SAVE: exception: ${e.message}")
-                contentResolver.delete(uri, null, null)
-                Toast.makeText(this, "Failed to save: ${e.message}", Toast.LENGTH_SHORT).show()
+            } ?: throw IOException("Failed to open output stream")
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
+                contentResolver.update(uri, done, null, null)
             }
-        } else {
-            println("SAVE: insert returned null")
-            Toast.makeText(this, "Failed to save to Photos", Toast.LENGTH_SHORT).show()
+            return uri
+        } catch (e: Exception) {
+            // Never delete the source recording: keep it so no data is lost.
+            try { contentResolver.delete(uri, null, null) } catch (_: Exception) {}
+            throw e
         }
     }
-
-
 }

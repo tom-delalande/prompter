@@ -14,7 +14,8 @@ fun MainViewController(): UIViewController {
             speechRecognizerFactory = { IOSSpeechRecognizer() },
             cameraRecorderFactory = { IOSCameraRecorder() },
             billingManagerFactory = { IOSBillingManager(PlatformStorage()) },
-            onSaveToPhotos = { /* iOS — save to photo library */ }
+            onSaveToPhotos = { _, _ -> /* iOS — save to photo library */ },
+            onOpenVideo = { _ -> /* iOS — open video */ }
         )
     }
 }
