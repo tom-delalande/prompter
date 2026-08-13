@@ -275,6 +275,7 @@ private fun TeleprompterContent(
                 val vpPx = with(density) { textAreaDp.toPx() }
 
                 var windowStart by remember { mutableStateOf(0) }
+
                 LaunchedEffect(currentIndex) {
                     if (wordCount == 0) return@LaunchedEffect
                     val desired = when {
@@ -318,6 +319,7 @@ private fun TeleprompterContent(
                         }
                         offsets[i - windowStart] = length
                         append("   ")
+                        pop()
                     }
                 }
                 val strokeString = if (textDisplayStyle.borderWidthDp > 0f) {
@@ -328,6 +330,7 @@ private fun TeleprompterContent(
                                 append(words[i])
                             }
                             append("   ")
+                            pop()
                         }
                     }
                 } else null
