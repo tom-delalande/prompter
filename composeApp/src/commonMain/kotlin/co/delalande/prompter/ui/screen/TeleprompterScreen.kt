@@ -65,6 +65,7 @@ fun TeleprompterScreen(
     onBack: () -> Unit,
     onSwipeBack: () -> Unit = onBack,
     onSaveToPhotos: (String) -> Unit,
+    onSaveStateChanged: (Boolean) -> Unit = {},
 ) {
     val scrollState = rememberScrollState()
     var isPipMode by remember { mutableStateOf(defaultCameraMode == CameraMode.PictureInPicture) }
@@ -93,6 +94,14 @@ fun TeleprompterScreen(
             viewModel.lastRecordedFile?.let { onSaveToPhotos(it) }
             viewModel.destroy()
             onBack()
+        }
+    }
+
+    LaunchedEffect(viewModel.isProcessing, viewModel.lastRecordedFile) {
+        if (viewModel.isProcessing) {
+            onSaveStateChanged(true)
+        } else if (viewModel.lastRecordedFile == null) {
+            onSaveStateChanged(false)
         }
     }
 
@@ -160,6 +169,7 @@ fun TeleprompterScreen(
 
         IconButton(
             onClick = {
+                if (viewModel.isProcessing) return@IconButton
                 if (viewModel.isRecording) {
                     showExitConfirmDialog = true
                 } else {

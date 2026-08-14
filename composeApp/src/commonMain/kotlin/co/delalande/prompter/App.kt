@@ -1,13 +1,24 @@
 package co.delalande.prompter
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.delay
 import co.delalande.prompter.billing.BillingManager
 import co.delalande.prompter.data.PlatformStorage
 import co.delalande.prompter.data.ScriptRepository
@@ -27,6 +38,9 @@ enum class Screen {
     ScriptList, ScriptEditor, Teleprompter, Settings
 }
 
+private const val SAVING_DIALOG_GRACE_MS = 600L
+private const val SAVING_DIALOG_MIN_DISPLAY_MS = 1000L
+
 @Composable
 fun App(
     platformStorage: PlatformStorage,
@@ -45,6 +59,8 @@ fun App(
     var teleprompterViewModel by remember { mutableStateOf<TeleprompterViewModel?>(null) }
     var previousScreenBeforeTeleprompter by remember { mutableStateOf(Screen.ScriptList) }
     var saveResult by remember { mutableStateOf<SaveResult?>(null) }
+    var isSavingVideo by remember { mutableStateOf(false) }
+    var showSavingDialog by remember { mutableStateOf(false) }
 
     TeleprompterTheme {
         Box {
@@ -113,8 +129,13 @@ fun App(
                                 currentScreen = previousScreenBeforeTeleprompter
                             },
                             onSaveToPhotos = { filePath ->
-                                onSaveToPhotos(filePath) { result -> saveResult = result }
-                            }
+                                isSavingVideo = true
+                                onSaveToPhotos(filePath) { result ->
+                                    isSavingVideo = false
+                                    saveResult = result
+                                }
+                            },
+                            onSaveStateChanged = { saving -> isSavingVideo = saving }
                         )
                     }
                 }
@@ -139,10 +160,54 @@ fun App(
                 }
                 saveResult = null
             }
+
+            LaunchedEffect(isSavingVideo) {
+                when {
+                    isSavingVideo -> {
+                        delay(SAVING_DIALOG_GRACE_MS)
+                        if (isSavingVideo) showSavingDialog = true
+                    }
+                    showSavingDialog -> {
+                        delay(SAVING_DIALOG_MIN_DISPLAY_MS)
+                        showSavingDialog = false
+                    }
+                    else -> showSavingDialog = false
+                }
+            }
             SnackbarHost(
                 hostState = snackbarHostState,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
+
+            if (showSavingDialog) {
+                SavingVideoDialog()
+            }
         }
     }
+}
+
+@Composable
+private fun SavingVideoDialog() {
+    AlertDialog(
+        onDismissRequest = {},
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        ),
+        title = { Text("Saving video…") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator()
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    text = "Please do not exit the app while your video is being saved.",
+                    textAlign = TextAlign.Center
+                )
+            }
+        },
+        confirmButton = {}
+    )
 }

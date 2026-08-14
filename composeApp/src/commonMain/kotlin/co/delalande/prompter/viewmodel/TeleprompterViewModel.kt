@@ -78,6 +78,7 @@ class TeleprompterViewModel(
 
         override fun onError(error: String) {
             recordingError = error
+            isProcessing = false
         }
     }
 
