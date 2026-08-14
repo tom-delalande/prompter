@@ -47,6 +47,7 @@ fun App(
     speechRecognizerFactory: () -> SpeechRecognizer,
     cameraRecorderFactory: () -> CameraRecorder,
     billingManagerFactory: () -> BillingManager,
+    buildInfo: String,
     onSaveToPhotos: (String, (SaveResult) -> Unit) -> Unit,
     onOpenVideo: (String) -> Unit
 ) {
@@ -110,6 +111,7 @@ fun App(
                 Screen.Settings -> {
                     SettingsScreen(
                         settingsRepository = settingsRepository,
+                        buildInfo = buildInfo,
                         onBack = { currentScreen = Screen.ScriptList }
                     )
                 }

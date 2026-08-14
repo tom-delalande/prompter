@@ -6,6 +6,30 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
 }
 
+val generateBuildInfo by tasks.registering {
+    val outputDir = layout.buildDirectory.dir("generated/buildInfo")
+    val gitCommit = providers.exec {
+        commandLine("git", "rev-parse", "--short", "HEAD")
+    }.standardOutput.asText
+
+    outputs.dir(outputDir)
+    inputs.property("gitCommit", gitCommit)
+
+    doLast {
+        val file = outputDir.get().file("co/delalande/prompter/BuildInfo.kt").asFile
+        file.parentFile.mkdirs()
+        file.writeText(
+            """
+            |package co.delalande.prompter
+            |
+            |object BuildInfo {
+            |    const val GIT_COMMIT = "${gitCommit.get().trim()}"
+            |}
+            |""".trimMargin()
+        )
+    }
+}
+
 kotlin {
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")
@@ -33,15 +57,18 @@ kotlin {
     }
 
     sourceSets {
-        commonMain.dependencies {
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material3)
-            implementation(compose.ui)
-            implementation("org.jetbrains.compose.material:material-icons-core:1.7.3")
-            implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
-            implementation(libs.kotlinx.serialization.json)
-            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+        commonMain {
+            kotlin.srcDir(generateBuildInfo)
+            dependencies {
+                implementation(compose.runtime)
+                implementation(compose.foundation)
+                implementation(compose.material3)
+                implementation(compose.ui)
+                implementation("org.jetbrains.compose.material:material-icons-core:1.7.3")
+                implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
+                implementation(libs.kotlinx.serialization.json)
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+            }
         }
 
         androidMain.dependencies {

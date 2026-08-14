@@ -35,6 +35,7 @@ private val ColorSwatches = listOf(
 @Composable
 fun SettingsScreen(
     settingsRepository: SettingsRepository,
+    buildInfo: String,
     onBack: () -> Unit
 ) {
     val initial = remember { settingsRepository.load() }
@@ -203,6 +204,15 @@ fun SettingsScreen(
             )
 
             Spacer(modifier = Modifier.height(32.dp))
+
+            Text(
+                text = buildInfo,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
