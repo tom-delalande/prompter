@@ -13,10 +13,10 @@ object SpeechMatcher {
     private const val MAX_RESYNC_LOOKAHEAD_WORDS = 150
     private const val MAX_ADVANCE_PER_MATCH = 12
     private const val HIGH_CONFIDENCE_MATCH_COUNT = 3
-    private const val DIRECT_MATCH_RATIO = 0.5f
+    private const val DIRECT_MATCH_RATIO = 0f
     private const val LOOKAHEAD_MATCH_RATIO = 0.6f
     private const val RESYNC_MATCH_RATIO = 0.7f
-    private const val NEAR_CONFIDENCE_THRESHOLD = 1.5f
+    private const val NEAR_CONFIDENCE_THRESHOLD = 0.5f
     private const val FAR_CONFIDENCE_THRESHOLD = 2.1f
 
     private val fillers = setOf(

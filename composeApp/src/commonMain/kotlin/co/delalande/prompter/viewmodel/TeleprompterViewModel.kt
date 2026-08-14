@@ -48,7 +48,12 @@ class TeleprompterViewModel(
             recordingError = error
         }
 
-        override fun onVoiceActivityChanged(isActive: Boolean) {}
+        override fun onVoiceActivityChanged(isActive: Boolean) {
+            if (!isActive) {
+                pendingWords.clear()
+            }
+        }
+
         override fun onAudioRecorded(path: String) {}
         override fun onAudioLevelChanged(level: Float) {
             audioLevel = level
@@ -148,17 +153,22 @@ class TeleprompterViewModel(
             pendingWords.removeFirst()
         }
 
-        val result = SpeechMatcher.match(
-            pendingWords.toList(),
-            script.words,
-            currentWordIndex
-        )
-        isMatching = result.isMatching
-        if (result.isMatching && result.newWordIndex > currentWordIndex) {
-            currentWordIndex = minOf(result.newWordIndex, script.wordCount())
-            updateScrollOffset()
-            val consumed = result.consumedWords.coerceAtMost(pendingWords.size)
-            repeat(consumed) { pendingWords.removeFirst() }
+        for (i in 0..pendingWords.size - 2) {
+            val subsetOfPendingWords = pendingWords.subList(i, pendingWords.size - 1)
+            val result = SpeechMatcher.match(
+                subsetOfPendingWords.toList(),
+                script.words,
+                currentWordIndex
+            )
+            isMatching = result.isMatching
+            if (result.isMatching && result.newWordIndex > currentWordIndex) {
+                currentWordIndex = minOf(result.newWordIndex, script.wordCount())
+                updateScrollOffset()
+                val consumed = result.consumedWords.coerceAtMost(subsetOfPendingWords.size)
+                repeat(i) { pendingWords.removeFirst() }
+                repeat(consumed) { pendingWords.removeFirst() }
+                return
+            }
         }
     }
 
@@ -170,6 +180,8 @@ class TeleprompterViewModel(
     fun seekTo(index: Int) {
         currentWordIndex = index.coerceIn(0, script.wordCount())
         updateScrollOffset()
+        pendingWords.clear()
+        lastPartialTokens = emptyList()
     }
 
     fun clearLastRecording() {

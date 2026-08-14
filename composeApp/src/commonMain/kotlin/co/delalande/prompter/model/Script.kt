@@ -7,7 +7,7 @@ data class Script(
     val id: String,
     val title: String,
     val content: String,
-    val createdAt: Long = 0L
+    val createdAt: Long = 0L,
 ) {
     val words: List<String>
         get() = content.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }

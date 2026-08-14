@@ -27,6 +27,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
@@ -96,8 +97,8 @@ fun TeleprompterScreen(
                     Modifier
                         .align(pipAlign)
                         .padding(
-                            top = if (isLandscape) 64.dp else 0.dp,
-                            end = if (isLandscape) 96.dp else 8.dp,
+                            top = if (isLandscape) 16.dp else 0.dp,
+                            end = if (isLandscape) 16.dp else 8.dp,
                             bottom = if (isLandscape) 0.dp else 200.dp,
                             start = if (isLandscape) 0.dp else 0.dp
                         )
@@ -112,7 +113,7 @@ fun TeleprompterScreen(
         }
 
         val pipEndPadding = if (isCameraPip) {
-            if (isLandscape) 280.dp else 170.dp
+            if (isLandscape) 100.dp else 170.dp
         } else 0.dp
 
         TeleprompterContent(
