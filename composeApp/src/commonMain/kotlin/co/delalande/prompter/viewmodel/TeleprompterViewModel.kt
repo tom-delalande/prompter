@@ -30,7 +30,7 @@ class TeleprompterViewModel(
 
     private val pendingWords = ArrayDeque<String>()
     private var lastPartialTokens: List<String> = emptyList()
-    private val maxPendingWords = 40
+    private val maxPendingWords = 10
     private var recordingCounter = 0
     private var opCounter = 0L
     private var currentVideoPath = ""

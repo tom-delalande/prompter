@@ -388,7 +388,7 @@ private fun TeleprompterContent(
 
                 LaunchedEffect(currentIndex, wordCount) {
                     if (wordCount == 0) return@LaunchedEffect
-                    if (currentIndex < windowStart || currentIndex >= windowEnd) {
+                    if (currentIndex !in windowStart..<windowEnd) {
                         currentWordCenterY = -1f
                         val newStart = (currentIndex - WINDOW_COVER_BEFORE).coerceIn(0, wordCount - 1)
                         offsetBefore = wordY[newStart]
@@ -417,25 +417,6 @@ private fun TeleprompterContent(
                     snapshotFlow { scrollState.value to scrollState.isScrollInProgress }
                         .collect { (scroll, inProgress) ->
                             userScrolling = inProgress && !autoScrollInProgress
-                            val viewportTopY = scroll - centerSpacerPx
-                            val viewportBottomY = scroll + vpPx - centerSpacerPx
-                            val windowBottom = offsetBefore + windowHeightPx
-                            val marginPx = vpPx * VIEWPORT_MARGIN_MULT
-                            val avgWordHeight = lineHeightPx / maxOf(wordsPerLine, 1f)
-                            if (windowStart > 0 && viewportTopY - offsetBefore < marginPx) {
-                                val deficit = marginPx - (viewportTopY - offsetBefore)
-                                val wordsToAdd = ((deficit + marginPx) / avgWordHeight).toInt() + 1
-                                val newStart = (windowStart - wordsToAdd).coerceAtLeast(0)
-                                if (newStart != windowStart) {
-                                    offsetBefore = wordY[newStart]
-                                    windowStart = newStart
-                                }
-                            }
-                            if (windowEnd < wordCount && windowBottom - viewportBottomY < marginPx) {
-                                val deficit = marginPx - (windowBottom - viewportBottomY)
-                                val wordsToAdd = ((deficit + marginPx) / avgWordHeight).toInt() + 1
-                                windowEnd = (windowEnd + wordsToAdd).coerceAtMost(wordCount)
-                            }
                         }
                 }
 
