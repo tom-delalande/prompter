@@ -70,14 +70,12 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         Log.d(TAG, "--- startListening ---")
 
         val rec = createRecognizer() ?: return
-        val audioSource = audioOutputPath?.let { startAudioCapture(it) }
-            ?: run {
-                Log.d(TAG, "No audio output path, using fromMic()")
-                AudioSource.fromMic()
-            }
+        val audioSource = startAudioCapture(audioOutputPath)
 
         if (audioSource == null) {
-            listener?.onError("Failed to start audio capture")
+            if (audioOutputPath != null) {
+                listener?.onError("Failed to start audio capture")
+            }
             isActive = false
             return
         }
@@ -155,8 +153,8 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         }
     }
 
-    private fun startAudioCapture(path: String): AudioSource? {
-        val fullPath = File(outputDir, path).absolutePath
+    private fun startAudioCapture(path: String?): AudioSource? {
+        val fullPath = path?.let { File(outputDir, it).absolutePath }
         val bufferSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
@@ -183,7 +181,9 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         val pfdRead = pipe[0]
         audioRecord = record
 
-        writeWavHeader(fullPath)
+        if (fullPath != null) {
+            writeWavHeader(fullPath)
+        }
 
         try {
             record.startRecording()
@@ -199,11 +199,11 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         reportExternalMic(record)
         smoothedLevel = 0f
 
-        Log.d(TAG, "AudioRecord started at ${SAMPLE_RATE}Hz")
+        Log.d(TAG, "AudioRecord started at ${SAMPLE_RATE}Hz" + if (fullPath == null) " (monitoring)" else "")
 
         audioCaptureJob = scope.launch(Dispatchers.Default) {
             val buffer = ByteArray(bufferSize)
-            val fos = FileOutputStream(fullPath, true)
+            val fos = fullPath?.let { FileOutputStream(it, true) }
             val pipeOut = ParcelFileDescriptor.AutoCloseOutputStream(audioPipeWriteEnd!!)
 
             try {
@@ -213,8 +213,10 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
                         reportExternalMic(record)
                         reportAudioLevel(buffer, bytesRead)
                         pipeOut.write(buffer, 0, bytesRead)
-                        fos.write(buffer, 0, bytesRead)
-                        totalAudioBytes += bytesRead
+                        if (fos != null) {
+                            fos.write(buffer, 0, bytesRead)
+                            totalAudioBytes += bytesRead
+                        }
                     } else if (bytesRead < 0) {
                         Log.e(TAG, "AudioRecord read error: $bytesRead")
                         break
@@ -223,18 +225,20 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
             } catch (e: IOException) {
                 if (isActive) Log.e(TAG, "Audio capture IO error", e)
             } finally {
-                try { fos.close() } catch (_: Exception) {}
+                try { fos?.close() } catch (_: Exception) {}
                 try { pipeOut.close() } catch (_: Exception) {}
                 stopAudioCapture()
-                updateWavHeader(fullPath)
-                Log.d(TAG, "Audio capture ended, ${totalAudioBytes} bytes written to $fullPath")
-                if (totalAudioBytes > 0) {
-                    scope.launch {
-                        println("STOPFLOW: MLKit calling onAudioRecorded fullPath=$fullPath")
-                        listener?.onAudioRecorded(fullPath)
+                if (fullPath != null) {
+                    updateWavHeader(fullPath)
+                    Log.d(TAG, "Audio capture ended, ${totalAudioBytes} bytes written to $fullPath")
+                    if (totalAudioBytes > 0) {
+                        scope.launch {
+                            println("STOPFLOW: MLKit calling onAudioRecorded fullPath=$fullPath")
+                            listener?.onAudioRecorded(fullPath)
+                        }
+                    } else {
+                        println("STOPFLOW: MLKit skip onAudioRecorded totalAudioBytes=$totalAudioBytes")
                     }
-                } else {
-                    println("STOPFLOW: MLKit skip onAudioRecorded totalAudioBytes=$totalAudioBytes")
                 }
             }
         }

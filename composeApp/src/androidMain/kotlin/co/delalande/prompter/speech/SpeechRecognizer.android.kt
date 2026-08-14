@@ -81,6 +81,7 @@ class AndroidSpeechRecognizer(private val context: Context) : SpeechRecognizer {
     }
 
     override fun startListening() {
+        if (isActive) return
         isActive = true
         recognizer = AndroidSpeechRecognizer.createSpeechRecognizer(context)
         if (recognizer == null) {

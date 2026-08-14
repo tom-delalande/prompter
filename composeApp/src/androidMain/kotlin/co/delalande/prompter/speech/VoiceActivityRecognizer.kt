@@ -31,6 +31,7 @@ class VoiceActivityRecognizer : SpeechRecognizer {
     }
 
     override fun startListening() {
+        if (isListening) return
         val bufferSize = maxOf(
             AudioRecord.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT),
             4096

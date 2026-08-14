@@ -14,15 +14,20 @@ class IOSSpeechRecognizer : SpeechRecognizer {
 
     private var recognizer: SFSpeechRecognizer? = null
     private var recognitionTask: SFSpeechRecognitionTask? = null
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest? = null
     private var audioEngine: AVAudioEngine? = null
     private var listener: SpeechListener? = null
     private var delegate: SpeechRecognitionDelegate? = null
     private var smoothedLevel = 0f
     private var lastExternalReported = false
+    private var isListening = false
 
     init {
         SFSpeechRecognizer.requestAuthorization { _ ->
             recognizer = SFSpeechRecognizer()
+            if (isListening) {
+                startRecognitionTask()
+            }
         }
     }
 
@@ -31,6 +36,7 @@ class IOSSpeechRecognizer : SpeechRecognizer {
     }
 
     override fun startListening() {
+        if (audioEngine != null) return
         val session = AVAudioSession.sharedInstance()
         session.setCategory(AVAudioSessionCategoryRecord, 0uL, null)
         session.setActive(true, null)
@@ -41,13 +47,14 @@ class IOSSpeechRecognizer : SpeechRecognizer {
         val node = engine.inputNode
         val recordingFormat = node.outputFormatForBus(0u)
 
-        val recognitionRequest = SFSpeechAudioBufferRecognitionRequest().apply {
+        val request = SFSpeechAudioBufferRecognitionRequest().apply {
             shouldReportPartialResults = true
         }
+        recognitionRequest = request
 
         node.installTapOnBus(0u, 1024u, recordingFormat) { buffer, _ ->
             buffer?.let {
-                recognitionRequest.appendAudioPCMBuffer(it)
+                request.appendAudioPCMBuffer(it)
                 reportAudioLevel(it)
             }
         }
@@ -56,13 +63,16 @@ class IOSSpeechRecognizer : SpeechRecognizer {
         engine.startAndReturnError(null)
 
         delegate = SpeechRecognitionDelegate(listener)
-
-        recognitionTask = recognizer?.recognitionTaskWithRequest(
-            recognitionRequest,
-            delegate ?: return
-        )
-
+        isListening = true
+        startRecognitionTask()
         reportExternalMic()
+    }
+
+    private fun startRecognitionTask() {
+        val request = recognitionRequest ?: return
+        val rec = recognizer ?: return
+        val d = delegate ?: return
+        recognitionTask = rec.recognitionTaskWithRequest(request, d)
     }
 
     private fun reportAudioLevel(buffer: AVAudioPCMBuffer) {
@@ -115,10 +125,12 @@ class IOSSpeechRecognizer : SpeechRecognizer {
     override fun stopListening() {
         recognitionTask?.cancel()
         recognitionTask = null
+        recognitionRequest = null
         audioEngine?.inputNode?.removeTapOnBus(0u)
         audioEngine?.stop()
         audioEngine = null
         delegate = null
+        isListening = false
         smoothedLevel = 0f
         listener?.onAudioLevelChanged(0f)
     }

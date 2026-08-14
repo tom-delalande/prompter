@@ -84,13 +84,16 @@ class TeleprompterViewModel(
     init {
         speechRecognizer.setListener(speechListener)
         cameraRecorder.setListener(recordingListener)
+        startMonitoring()
+    }
+
+    fun startMonitoring() {
+        speechRecognizer.startListening()
     }
 
     fun startPlayback() {
         isPlaying = true
         isMatching = true
-        audioLevel = 0f
-        isExternalMic = false
         pendingWords.clear()
         lastPartialTokens = emptyList()
         speechRecognizer.setAudioOutputPath(currentAudioPath)
@@ -121,7 +124,6 @@ class TeleprompterViewModel(
         isProcessing = true
         isPlaying = false
         cameraRecorder.stopRecording()
-        speechRecognizer.stopListening()
         println("STOPFLOW: stopRecording finished")
     }
 

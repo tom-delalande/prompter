@@ -96,6 +96,14 @@ fun TeleprompterScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.startMonitoring()
+        repeat(10) {
+            delay(400)
+            viewModel.startMonitoring()
+        }
+    }
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -196,26 +204,24 @@ fun TeleprompterScreen(
             }
         }
 
-        if (viewModel.isRecording || viewModel.isPlaying) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .zIndex(4f)
-                    .statusBarsPadding()
-                    .padding(top = 10.dp, end = 14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                if (viewModel.isExternalMic) {
-                    Icon(
-                        imageVector = Icons.Filled.MicExternalOn,
-                        contentDescription = "External microphone in use",
-                        tint = Color(0xFF81C784),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.height(6.dp))
-                }
-                AudioLevelBar(level = animatedAudioLevel)
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .zIndex(4f)
+                .statusBarsPadding()
+                .padding(top = 10.dp, end = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (viewModel.isExternalMic) {
+                Icon(
+                    imageVector = Icons.Filled.MicExternalOn,
+                    contentDescription = "External microphone in use",
+                    tint = Color(0xFF81C784),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.height(6.dp))
             }
+            AudioLevelBar(level = animatedAudioLevel)
         }
 
         if (isLandscape) {
