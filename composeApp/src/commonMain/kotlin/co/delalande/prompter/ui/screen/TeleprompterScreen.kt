@@ -335,6 +335,7 @@ private fun TeleprompterContent(
         ) {
                 val textAreaDp = maxHeight
                 val words = viewModel.script.words
+                val lineBreakAfterWord = viewModel.script.lineBreakAfterWord
                 val currentIndex = viewModel.currentWordIndex
                 val wordCount = words.size
 
@@ -389,6 +390,7 @@ private fun TeleprompterContent(
                 val fillString = buildAnnotatedString {
                     for (i in windowStart until windowEnd) {
                         pushStringAnnotation("word", i.toString())
+                        offsets[i - windowStart] = length
                         withStyle(
                             SpanStyle(
                                 color = if (i < currentIndex) textColor.copy(alpha = 0.45f) else textColor,
@@ -397,8 +399,11 @@ private fun TeleprompterContent(
                         ) {
                             append(words[i])
                         }
-                        offsets[i - windowStart] = length
-                        append("   ")
+                        if (lineBreakAfterWord.getOrElse(i) { false }) {
+                            append("\n")
+                        } else {
+                            append("   ")
+                        }
                         pop()
                     }
                 }
@@ -409,7 +414,11 @@ private fun TeleprompterContent(
                             withStyle(SpanStyle(color = borderColor, fontSize = fontSize)) {
                                 append(words[i])
                             }
-                            append("   ")
+                            if (lineBreakAfterWord.getOrElse(i) { false }) {
+                                append("\n")
+                            } else {
+                                append("   ")
+                            }
                             pop()
                         }
                     }
