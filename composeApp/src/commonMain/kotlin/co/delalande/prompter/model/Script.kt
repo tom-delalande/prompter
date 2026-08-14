@@ -35,7 +35,7 @@ data class Script(
 
     fun wordCount(): Int = words.size
 
-    private companion object {
+    companion object {
         val WORD_REGEX = Regex("\\S+")
     }
 }

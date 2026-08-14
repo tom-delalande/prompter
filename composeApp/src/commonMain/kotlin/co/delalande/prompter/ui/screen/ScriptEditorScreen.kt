@@ -14,14 +14,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.*
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.OffsetMapping
-import androidx.compose.ui.text.input.TransformedText
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import co.delalande.prompter.data.ScriptRepository
@@ -39,42 +34,37 @@ fun ScriptEditorScreen(
 ) {
     val existing = scriptId?.let { repository.getById(it) }
     val currentId = remember { existing?.id ?: generateId() }
-    val initialText = remember {
-        existing?.let { "${it.title}\n${it.content}" } ?: ""
-    }
+    val initialTitle = remember { existing?.title ?: "" }
+    val initialContent = remember { existing?.content ?: "" }
 
-    var text by remember { mutableStateOf(initialText) }
+    var title by remember { mutableStateOf(initialTitle) }
+    var content by remember { mutableStateOf(initialContent) }
 
     fun currentScript(): Script {
-        val lines = text.split("\n", limit = 2)
         return Script(
             id = currentId,
-            title = lines.getOrNull(0)?.ifBlank { "Untitled" } ?: "Untitled",
-            content = lines.getOrNull(1) ?: ""
+            title = title.ifBlank { "Untitled" },
+            content = content
         )
     }
 
+    fun hasText() = title.isNotBlank() || content.isNotBlank()
+
     fun save() {
-        if (text.isNotBlank()) repository.save(currentScript())
+        if (hasText()) repository.save(currentScript())
     }
 
-    LaunchedEffect(text) {
-        if (text.isNotBlank()) {
+    LaunchedEffect(title, content) {
+        if (hasText()) {
             delay(400)
             repository.save(currentScript())
         }
     }
 
-    val wordCount = remember(text) {
-        val t = text.trim()
+    val wordCount = remember(content) {
+        val t = content.trim()
         if (t.isEmpty()) 0 else t.split("\\s+".toRegex()).size
     }
-
-    val transformation = FirstLineTitleTransformation(
-        onSurface = MaterialTheme.colorScheme.onSurface,
-        titleSize = 24.sp,
-        bodySize = 16.sp,
-    )
 
     SystemBackHandler(onBack = { save(); onBack() })
 
@@ -95,7 +85,7 @@ fun ScriptEditorScreen(
                         }
                     },
                     actions = {
-                        if (text.isNotBlank()) {
+                        if (hasText()) {
                             TextButton(onClick = { save(); onPlay(currentScript()) }) {
                                 Icon(
                                     Icons.Filled.PlayArrow,
@@ -133,21 +123,21 @@ fun ScriptEditorScreen(
                         .background(MaterialTheme.colorScheme.surface)
                         .padding(20.dp)
                 ) {
-                    BasicTextField(
-                        value = text,
-                        onValueChange = { text = it },
-                        modifier = Modifier.fillMaxWidth(),
-                        visualTransformation = transformation,
-                        textStyle = TextStyle(
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 24.sp,
-                        ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        decorationBox = { innerTextField ->
-                            Box {
-                                if (text.isEmpty()) {
-                                    Column {
+                    Column {
+                        BasicTextField(
+                            value = title,
+                            onValueChange = { title = it },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = TextStyle(
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            ),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            decorationBox = { innerTextField ->
+                                Box {
+                                    if (title.isEmpty()) {
                                         Text(
                                             "Title",
                                             style = TextStyle(
@@ -156,7 +146,25 @@ fun ScriptEditorScreen(
                                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
                                             )
                                         )
-                                        Spacer(modifier = Modifier.height(4.dp))
+                                    }
+                                    innerTextField()
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        BasicTextField(
+                            value = content,
+                            onValueChange = { content = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            textStyle = TextStyle(
+                                fontSize = 16.sp,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                lineHeight = 24.sp,
+                            ),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            decorationBox = { innerTextField ->
+                                Box {
+                                    if (content.isEmpty()) {
                                         Text(
                                             "Take a note...",
                                             style = TextStyle(
@@ -165,11 +173,11 @@ fun ScriptEditorScreen(
                                             )
                                         )
                                     }
+                                    innerTextField()
                                 }
-                                innerTextField()
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
 
@@ -195,44 +203,6 @@ fun ScriptEditorScreen(
                 }
             }
         }
-    }
-}
-
-private class FirstLineTitleTransformation(
-    private val onSurface: Color,
-    private val titleSize: TextUnit,
-    private val bodySize: TextUnit,
-) : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText {
-        val s = text.text
-        val firstNl = s.indexOf('\n')
-        val titleEnd = if (firstNl == -1) s.length else firstNl
-
-        val annotated = buildAnnotatedString {
-            if (titleEnd > 0) {
-                withStyle(
-                    SpanStyle(
-                        fontSize = titleSize,
-                        fontWeight = FontWeight.SemiBold,
-                        color = onSurface,
-                    )
-                ) {
-                    append(s.substring(0, titleEnd))
-                }
-            }
-            if (firstNl != -1) {
-                append("\n")
-                withStyle(
-                    SpanStyle(
-                        fontSize = bodySize,
-                        color = onSurface,
-                    )
-                ) {
-                    append(s.substring(firstNl + 1))
-                }
-            }
-        }
-        return TransformedText(annotated, OffsetMapping.Identity)
     }
 }
 
