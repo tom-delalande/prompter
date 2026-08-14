@@ -163,6 +163,7 @@ fun TeleprompterScreen(
             scrollState = scrollState,
             modifier = Modifier
                 .fillMaxSize()
+                .clickable { if (!isPipMode) isPipMode = true }
                 .zIndex(if (isCameraPip) 0f else 1f),
             pipEndPadding = pipEndPadding,
             isLandscape = isLandscape,
