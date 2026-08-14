@@ -25,6 +25,7 @@ import co.delalande.prompter.billing.SMALL_TIP_PRODUCT_ID
 import co.delalande.prompter.billing.LARGE_TIP_PRODUCT_ID
 import co.delalande.prompter.data.ScriptRepository
 import co.delalande.prompter.model.Script
+import co.delalande.prompter.ui.formatLastUpdated
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -256,11 +257,30 @@ private fun ScriptCard(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
             }
-            Text(
-                text = "${script.wordCount()} words",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "${script.wordCount()} words",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                )
+                val updatedText = script.updatedAt
+                    .takeIf { it > 0 }
+                    ?.let { "Updated ${formatLastUpdated(it)}" }
+                if (updatedText != null) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "·",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = updatedText,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                    )
+                }
+            }
         }
     }
 }

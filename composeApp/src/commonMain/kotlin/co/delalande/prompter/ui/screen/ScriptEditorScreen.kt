@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import co.delalande.prompter.data.ScriptRepository
 import co.delalande.prompter.model.Script
 import co.delalande.prompter.ui.SystemBackHandler
+import co.delalande.prompter.ui.formatLastUpdated
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,6 +40,7 @@ fun ScriptEditorScreen(
 
     var title by remember { mutableStateOf(initialTitle) }
     var content by remember { mutableStateOf(initialContent) }
+    var lastUpdatedAt by remember { mutableStateOf(existing?.updatedAt ?: 0L) }
 
     fun currentScript(): Script {
         return Script(
@@ -51,13 +53,16 @@ fun ScriptEditorScreen(
     fun hasText() = title.isNotBlank() || content.isNotBlank()
 
     fun save() {
-        if (hasText()) repository.save(currentScript())
+        if (hasText()) {
+            repository.save(currentScript())
+            lastUpdatedAt = currentTimeMillis()
+        }
     }
 
     LaunchedEffect(title, content) {
         if (hasText()) {
             delay(400)
-            repository.save(currentScript())
+            save()
         }
     }
 
@@ -200,6 +205,23 @@ fun ScriptEditorScreen(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                     )
+                    val updatedText = lastUpdatedAt
+                        .takeIf { it > 0 }
+                        ?.let { "Updated ${formatLastUpdated(it)}" }
+                    if (updatedText != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "·",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = updatedText,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                        )
+                    }
                 }
             }
         }

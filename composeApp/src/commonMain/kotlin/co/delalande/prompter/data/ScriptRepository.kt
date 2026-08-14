@@ -3,6 +3,7 @@ package co.delalande.prompter.data
 import co.delalande.prompter.model.Script
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlin.time.Clock
 
 class ScriptRepository(private val storage: PlatformStorage) {
     private val json = Json { ignoreUnknownKeys = true }
@@ -31,11 +32,12 @@ class ScriptRepository(private val storage: PlatformStorage) {
 
     fun save(script: Script) {
         loadAll()
-        val index = scripts.indexOfFirst { it.id == script.id }
+        val stamped = script.copy(updatedAt = Clock.System.now().toEpochMilliseconds())
+        val index = scripts.indexOfFirst { it.id == stamped.id }
         if (index >= 0) {
-            scripts[index] = script
+            scripts[index] = stamped
         } else {
-            scripts.add(script)
+            scripts.add(stamped)
         }
         persist()
     }
