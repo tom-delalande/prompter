@@ -21,8 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import co.delalande.prompter.billing.BillingManager
-import co.delalande.prompter.billing.TIP_10_PRODUCT_ID
-import co.delalande.prompter.billing.TIP_25_PRODUCT_ID
+import co.delalande.prompter.billing.SMALL_TIP_PRODUCT_ID
+import co.delalande.prompter.billing.LARGE_TIP_PRODUCT_ID
 import co.delalande.prompter.data.ScriptRepository
 import co.delalande.prompter.model.Script
 
@@ -174,7 +174,7 @@ fun ScriptListScreen(
             onBuy10 = {
                 isPurchasing = true
                 dialogMessage = null
-                billingManager.purchase(TIP_10_PRODUCT_ID) { success ->
+                billingManager.purchase(SMALL_TIP_PRODUCT_ID) { success ->
                     isPurchasing = false
                     if (success) {
                         isPremium = true
@@ -187,7 +187,7 @@ fun ScriptListScreen(
             onBuy25 = {
                 isPurchasing = true
                 dialogMessage = null
-                billingManager.purchase(TIP_25_PRODUCT_ID) { success ->
+                billingManager.purchase(LARGE_TIP_PRODUCT_ID) { success ->
                     isPurchasing = false
                     if (success) {
                         isPremium = true

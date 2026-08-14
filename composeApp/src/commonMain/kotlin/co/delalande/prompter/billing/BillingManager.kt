@@ -9,9 +9,9 @@ interface BillingManager {
     fun isPremium(): Boolean
 }
 
-const val TIP_10_PRODUCT_ID = "co.delalande.prompter.tip10"
-const val TIP_25_PRODUCT_ID = "co.delalande.prompter.tip25"
-val TIP_PRODUCT_IDS = setOf(TIP_10_PRODUCT_ID, TIP_25_PRODUCT_ID)
+const val SMALL_TIP_PRODUCT_ID = "co.delalande.prompter.smalltip"
+const val LARGE_TIP_PRODUCT_ID = "co.delalande.prompter.largetip"
+val TIP_PRODUCT_IDS = setOf(SMALL_TIP_PRODUCT_ID, LARGE_TIP_PRODUCT_ID)
 const val PREMIUM_FILE = "premium.json"
 
 fun savePremium(storage: PlatformStorage, premium: Boolean) {

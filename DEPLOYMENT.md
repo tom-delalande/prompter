@@ -14,7 +14,7 @@ This guide walks through everything you need to do to ship **Prompter** (project
 | Store screenshots  | Missing                                                                                                                    | Missing                                                     |
 | Store metadata     | Partial (`fastlane/metadata/android`)                                                                                      | Missing                                                     |
 | Privacy policy URL | **Missing (required)**                                                                                                     | **Missing (required)**                                      |
-| In-app purchases   | Products `co.delalande.prompter.tip10` / `co.delalande.prompter.tip25` referenced in code, **not created in Play Console** | Same product IDs, **not created in App Store Connect**      |
+| In-app purchases   | Products `co.delalande.prompter.smalltip` / `co.delalande.prompter.largetip` referenced in code, **not created in Play Console** | Same product IDs, **not created in App Store Connect**      |
 
 > Two hard deadlines to keep in mind (today is 2026-07-31):
 >
@@ -109,7 +109,7 @@ Output: `androidApp/build/outputs/bundle/release/androidApp-release.aab`. Upload
 
 ### 1.6 In-app purchases (tips)
 
-The code queries two consumable products (`BillingManager.kt:12-13`): **`co.delalande.prompter.tip10`** and **`co.delalande.prompter.tip25`**. In **Play Console → Monetize → Products → In-app products**, create both:
+The code queries two consumable products (`BillingManager.kt:12-13`): **`co.delalande.prompter.smalltip`** and **`co.delalande.prompter.largetip`**. In **Play Console → Monetize → Products → In-app products**, create both:
 
 - Product ID must match exactly.
 - Type: **Consumable** (the app treats them as one-time tips).
@@ -178,7 +178,7 @@ Build for a simulator, then a device, and confirm recording + voice-driven scrol
 
 ### 2.4 In-app purchases (tips)
 
-Same two product IDs, **`co.delalande.prompter.tip10`** and **`co.delalande.prompter.tip25`**, in **App Store Connect → My Apps → App → Monetization → In-App Purchases → Consumable**:
+Same two product IDs, **`co.delalande.prompter.smalltip`** and **`co.delalande.prompter.largetip`**, in **App Store Connect → My Apps → App → Monetization → In-App Purchases → Consumable**:
 
 - Reference name + product ID must match the code exactly.
 - Set **price tiers** (App Store Connect uses price points, not raw amounts).
