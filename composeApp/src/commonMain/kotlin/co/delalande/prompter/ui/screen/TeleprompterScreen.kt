@@ -44,6 +44,7 @@ import co.delalande.prompter.viewmodel.TeleprompterViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlin.math.abs
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
 private const val WINDOW_COVER_BEFORE = 60
@@ -88,6 +89,13 @@ fun TeleprompterScreen(
             recordingElapsedMillis = startTime.elapsedNow().inWholeMilliseconds
         }
     }
+
+//    LaunchedEffect(viewModel.isRecording) {
+//        while (viewModel.currentWordIndex < viewModel.script.words.size) {
+//            viewModel.currentWordIndex++
+//            delay(20.milliseconds)
+//        }
+//    }
 
     LaunchedEffect(viewModel.lastRecordedFile) {
         if (viewModel.lastRecordedFile != null) {
@@ -417,6 +425,17 @@ private fun TeleprompterContent(
                     snapshotFlow { scrollState.value to scrollState.isScrollInProgress }
                         .collect { (scroll, inProgress) ->
                             userScrolling = inProgress && !autoScrollInProgress
+                            val viewportBottomY = scroll + vpPx - centerSpacerPx
+                            val windowBottom = offsetBefore + windowHeightPx
+                            val marginPx = vpPx * VIEWPORT_MARGIN_MULT
+                            if (windowEnd < wordCount && windowBottom - viewportBottomY < marginPx) {
+                                currentWordCenterY = -1f
+                                val newStart = (currentIndex - WINDOW_COVER_BEFORE).coerceIn(0, wordCount - 1)
+                                offsetBefore = wordY[newStart]
+                                windowStart = newStart
+                                windowEnd = maxOf(windowEnd, minOf(newStart + WINDOW_INITIAL, wordCount))
+                                windowEnd = maxOf(windowEnd, currentIndex + 1)
+                            }
                         }
                 }
 
