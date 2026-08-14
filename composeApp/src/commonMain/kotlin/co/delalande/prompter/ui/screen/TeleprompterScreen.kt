@@ -41,10 +41,21 @@ import co.delalande.prompter.ui.SystemBackHandler
 import co.delalande.prompter.ui.fontFamilyFor
 import co.delalande.prompter.ui.parseHexColor
 import co.delalande.prompter.viewmodel.TeleprompterViewModel
+import kotlinx.coroutines.delay
+import kotlin.time.TimeSource
 
 private const val WINDOW_BEFORE = 60
 private const val WINDOW_AFTER = 240
 private const val SLIDE_AT = 60
+
+private fun formatRecordingTime(millis: Long): String {
+    val totalSeconds = millis / 1000
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    fun pad(value: Long): String = if (value < 10) "0$value" else value.toString()
+    return if (hours > 0) "$hours:${pad(minutes)}:${pad(seconds)}" else "${pad(minutes)}:${pad(seconds)}"
+}
 
 @Composable
 fun TeleprompterScreen(
@@ -57,11 +68,23 @@ fun TeleprompterScreen(
 ) {
     val scrollState = rememberScrollState()
     var isPipMode by remember { mutableStateOf(defaultCameraMode == CameraMode.PictureInPicture) }
+    var showExitConfirmDialog by remember { mutableStateOf(false) }
+    var recordingElapsedMillis by remember { mutableStateOf(0L) }
     val animatedAudioLevel by animateFloatAsState(
         targetValue = viewModel.audioLevel,
         animationSpec = tween(durationMillis = 120),
         label = "audioLevel"
     )
+
+    LaunchedEffect(viewModel.isRecording) {
+        if (!viewModel.isRecording) return@LaunchedEffect
+        val startTime = TimeSource.Monotonic.markNow()
+        recordingElapsedMillis = 0L
+        while (true) {
+            delay(100)
+            recordingElapsedMillis = startTime.elapsedNow().inWholeMilliseconds
+        }
+    }
 
     LaunchedEffect(viewModel.lastRecordedFile) {
         if (viewModel.lastRecordedFile != null) {
@@ -129,8 +152,12 @@ fun TeleprompterScreen(
 
         IconButton(
             onClick = {
-                viewModel.destroy()
-                onBack()
+                if (viewModel.isRecording) {
+                    showExitConfirmDialog = true
+                } else {
+                    viewModel.destroy()
+                    onBack()
+                }
             },
             modifier = Modifier
                 .align(Alignment.TopStart)
@@ -139,6 +166,34 @@ fun TeleprompterScreen(
                 .padding(start = 8.dp, top = 8.dp)
         ) {
             Text("\u2715", fontSize = 24.sp, color = Color.White)
+        }
+
+        if (viewModel.isRecording) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .zIndex(4f)
+                    .statusBarsPadding()
+                    .padding(top = 10.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .padding(horizontal = 12.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFF5252))
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = formatRecordingTime(recordingElapsedMillis),
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
         }
 
         if (viewModel.isRecording || viewModel.isPlaying) {
@@ -192,6 +247,30 @@ fun TeleprompterScreen(
             ) {
                 Text(error)
             }
+        }
+
+        if (showExitConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showExitConfirmDialog = false },
+                title = { Text("Stop recording?") },
+                text = { Text("Your current recording will be stopped and you'll leave the teleprompter screen.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showExitConfirmDialog = false
+                            viewModel.destroy()
+                            onBack()
+                        }
+                    ) {
+                        Text("Stop & Exit")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showExitConfirmDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }
