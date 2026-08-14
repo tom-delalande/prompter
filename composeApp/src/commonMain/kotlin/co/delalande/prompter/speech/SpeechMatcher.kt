@@ -9,7 +9,7 @@ data class MatchResult(
 
 object SpeechMatcher {
     private const val NEAR_LOOKAHEAD_WORDS = 8
-    private const val MAX_LOOKAHEAD_WORDS = 40
+    private const val MAX_LOOKAHEAD_WORDS = 10
     private const val MAX_RESYNC_LOOKAHEAD_WORDS = 150
     private const val MAX_ADVANCE_PER_MATCH = 12
     private const val HIGH_CONFIDENCE_MATCH_COUNT = 3

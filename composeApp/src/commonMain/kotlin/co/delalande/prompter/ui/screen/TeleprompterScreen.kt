@@ -42,11 +42,13 @@ import co.delalande.prompter.ui.fontFamilyFor
 import co.delalande.prompter.ui.parseHexColor
 import co.delalande.prompter.viewmodel.TeleprompterViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlin.math.abs
 import kotlin.time.TimeSource
 
-private const val WINDOW_BEFORE = 60
-private const val WINDOW_AFTER = 240
-private const val SLIDE_AT = 60
+private const val WINDOW_COVER_BEFORE = 60
+private const val WINDOW_INITIAL = 300
+private const val VIEWPORT_MARGIN_MULT = 1.5f
 
 private fun formatRecordingTime(millis: Long): String {
     val totalSeconds = millis / 1000
@@ -364,42 +366,76 @@ private fun TeleprompterContent(
                 val borderWidthPx = with(density) { textDisplayStyle.borderWidthDp.dp.toPx() }
                 val verticalCenterOffset = textAreaDp / 2 - with(density) { lineHeight.toDp() } / 2
 
-                val wordTop = remember(words) { FloatArray(wordCount) { -1f } }
-                var offsetBefore by remember { mutableStateOf(0f) }
+                val lineHeightPx = with(density) { lineHeight.toPx() }
+                val wordY = remember(words, lineHeightPx) {
+                    FloatArray(wordCount) { i -> (lineHeightPx / 8f) * i }
+                }
                 var currentWordCenterY by remember { mutableStateOf(-1f) }
-                var windowHeightPx by remember { mutableStateOf(0f) }
                 val centerSpacerPx = with(density) { verticalCenterOffset.toPx() }
                 val vpPx = with(density) { textAreaDp.toPx() }
 
                 var windowStart by remember { mutableStateOf(0) }
+                var windowEnd by remember(wordCount) { mutableStateOf(minOf(WINDOW_INITIAL, wordCount)) }
+                var offsetBefore by remember { mutableStateOf(0f) }
+                var windowHeightPx by remember { mutableStateOf(0f) }
+                var estimatedDocHeightPx by remember { mutableStateOf(0f) }
+                var autoScrollInProgress by remember { mutableStateOf(false) }
+                var userScrolling by remember { mutableStateOf(false) }
+                var wordsPerLine by remember { mutableStateOf(1f) }
 
-                LaunchedEffect(currentIndex) {
+                val windowSize = windowEnd - windowStart
+
+                LaunchedEffect(currentIndex, wordCount) {
                     if (wordCount == 0) return@LaunchedEffect
-                    val desired = when {
-                        currentIndex < windowStart ->
-                            (currentIndex - WINDOW_BEFORE).coerceIn(0, wordCount - 1)
-                        currentIndex - windowStart > WINDOW_BEFORE + SLIDE_AT ->
-                            currentIndex - WINDOW_BEFORE
-                        else -> windowStart
-                    }
-                    if (desired != windowStart) {
-                        val newOffset = wordTop[desired]
-                        if (newOffset >= 0f) {
-                            val delta = (newOffset - offsetBefore).toInt()
-                            if (delta != 0) scrollState.scrollTo(scrollState.value + delta)
-                            offsetBefore = newOffset
-                        }
-                        windowStart = desired
+                    if (currentIndex < windowStart || currentIndex >= windowEnd) {
+                        currentWordCenterY = -1f
+                        val newStart = (currentIndex - WINDOW_COVER_BEFORE).coerceIn(0, wordCount - 1)
+                        offsetBefore = wordY[newStart]
+                        windowStart = newStart
+                        windowEnd = maxOf(windowEnd, minOf(newStart + WINDOW_INITIAL, wordCount))
+                        windowEnd = maxOf(windowEnd, currentIndex + 1)
                     }
                 }
-                val windowEnd = minOf(windowStart + WINDOW_BEFORE + WINDOW_AFTER, wordCount)
-                val windowSize = windowEnd - windowStart
 
                 LaunchedEffect(currentIndex, currentWordCenterY, scrollState.maxValue) {
                     if (currentIndex >= wordCount) return@LaunchedEffect
                     if (currentWordCenterY < 0f) return@LaunchedEffect
-                    val target = (centerSpacerPx + offsetBefore + currentWordCenterY - vpPx / 2f).toInt()
-                    scrollState.animateScrollTo(target.coerceAtLeast(0))
+                    if (userScrolling) return@LaunchedEffect
+                    val target = (centerSpacerPx + currentWordCenterY - vpPx / 2f).toInt()
+                    if (abs(target - scrollState.value) <= lineHeightPx * 0.8f) return@LaunchedEffect
+                    autoScrollInProgress = true
+                    try {
+                        scrollState.animateScrollTo(target.coerceAtLeast(0))
+                    } finally {
+                        autoScrollInProgress = false
+                    }
+                }
+
+                LaunchedEffect(scrollState.maxValue, vpPx) {
+                    if (wordCount == 0) return@LaunchedEffect
+                    snapshotFlow { scrollState.value to scrollState.isScrollInProgress }
+                        .collect { (scroll, inProgress) ->
+                            userScrolling = inProgress && !autoScrollInProgress
+                            val viewportTopY = scroll - centerSpacerPx
+                            val viewportBottomY = scroll + vpPx - centerSpacerPx
+                            val windowBottom = offsetBefore + windowHeightPx
+                            val marginPx = vpPx * VIEWPORT_MARGIN_MULT
+                            val avgWordHeight = lineHeightPx / maxOf(wordsPerLine, 1f)
+                            if (windowStart > 0 && viewportTopY - offsetBefore < marginPx) {
+                                val deficit = marginPx - (viewportTopY - offsetBefore)
+                                val wordsToAdd = ((deficit + marginPx) / avgWordHeight).toInt() + 1
+                                val newStart = (windowStart - wordsToAdd).coerceAtLeast(0)
+                                if (newStart != windowStart) {
+                                    offsetBefore = wordY[newStart]
+                                    windowStart = newStart
+                                }
+                            }
+                            if (windowEnd < wordCount && windowBottom - viewportBottomY < marginPx) {
+                                val deficit = marginPx - (windowBottom - viewportBottomY)
+                                val wordsToAdd = ((deficit + marginPx) / avgWordHeight).toInt() + 1
+                                windowEnd = (windowEnd + wordsToAdd).coerceAtMost(wordCount)
+                            }
+                        }
                 }
 
                 val offsets = IntArray(windowSize)
@@ -417,6 +453,7 @@ private fun TeleprompterContent(
                         withStyle(
                             SpanStyle(
                                 color = if (i < currentIndex) textColor.copy(alpha = 0.45f) else textColor,
+                                background = if (i == currentIndex) Color(0xFF1565C0).copy(alpha = 0.6f) else Color.Transparent,
                                 fontSize = fontSize
                             )
                         ) {
@@ -489,18 +526,34 @@ private fun TeleprompterContent(
                                 windowHeightPx = result.size.height.toFloat()
                                 for (k in 0 until windowSize) {
                                     val box = result.getBoundingBox(offsets[k])
-                                    wordTop[windowStart + k] = offsetBefore + box.top
+                                    wordY[windowStart + k] = offsetBefore + box.top
                                 }
                                 if (windowSize > 0) {
+                                    val newWpl = windowSize.toFloat() / result.lineCount.coerceAtLeast(1)
+                                    if (newWpl != wordsPerLine) wordsPerLine = newWpl
+                                    var prev = offsetBefore
+                                    for (i in windowStart - 1 downTo 0) {
+                                        prev -= if (lineBreakBefore[i + 1]) lineHeightPx else lineHeightPx / newWpl
+                                        wordY[i] = prev
+                                    }
+                                    prev = wordY[windowEnd - 1]
+                                    for (i in windowEnd until wordCount) {
+                                        prev += if (lineBreakBefore[i]) lineHeightPx else lineHeightPx / newWpl
+                                        wordY[i] = prev
+                                    }
+                                    estimatedDocHeightPx = wordY[wordCount - 1] + lineHeightPx
                                     val rel = (currentIndex - windowStart).coerceIn(0, windowSize - 1)
                                     val cb = result.getBoundingBox(offsets[rel])
-                                    currentWordCenterY = cb.top + cb.height / 2f
+                                    currentWordCenterY = offsetBefore + cb.top + cb.height / 2f
                                 }
                             }
                         )
                     }
 
-                    ChunkedSpacer(heightPx = windowHeightPx)
+                    ChunkedSpacer(
+                        heightPx = (estimatedDocHeightPx - (offsetBefore + windowHeightPx))
+                            .coerceAtLeast(centerSpacerPx)
+                    )
                 }
         }
     }
