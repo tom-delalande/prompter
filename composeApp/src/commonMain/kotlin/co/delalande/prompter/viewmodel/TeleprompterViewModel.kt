@@ -181,7 +181,7 @@ class TeleprompterViewModel(
     }
 
     fun seekTo(index: Int) {
-        currentWordIndex = index.coerceIn(0, script.wordCount())
+        currentWordIndex = index.coerceIn(0, script.wordCount()) - 1
         updateScrollOffset()
         pendingWords.clear()
         lastPartialTokens = emptyList()
