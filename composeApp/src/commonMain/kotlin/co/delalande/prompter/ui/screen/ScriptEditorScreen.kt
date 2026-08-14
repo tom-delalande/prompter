@@ -54,8 +54,9 @@ fun ScriptEditorScreen(
 
     fun save() {
         if (hasText()) {
-            repository.save(currentScript())
-            lastUpdatedAt = currentTimeMillis()
+            if (repository.save(currentScript())) {
+                lastUpdatedAt = currentTimeMillis()
+            }
         }
     }
 

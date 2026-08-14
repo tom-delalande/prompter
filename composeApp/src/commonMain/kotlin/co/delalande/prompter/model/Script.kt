@@ -7,7 +7,6 @@ data class Script(
     val id: String,
     val title: String,
     val content: String,
-    val createdAt: Long = 0L,
     val updatedAt: Long = 0L,
 ) {
     private val parsed by lazy { ParsedScript.parse(content) }

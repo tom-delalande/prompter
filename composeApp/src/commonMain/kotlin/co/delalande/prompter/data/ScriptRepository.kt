@@ -30,16 +30,22 @@ class ScriptRepository(private val storage: PlatformStorage) {
         return scripts.find { it.id == id }
     }
 
-    fun save(script: Script) {
+    fun save(script: Script): Boolean {
         loadAll()
-        val stamped = script.copy(updatedAt = Clock.System.now().toEpochMilliseconds())
-        val index = scripts.indexOfFirst { it.id == stamped.id }
+        var saved = false
+        val index = scripts.indexOfFirst { it.id == script.id }
         if (index >= 0) {
-            scripts[index] = stamped
+            val existing = scripts[index]
+            if (existing.words != script.words) {
+                saved = true
+                scripts[index] = script.copy(updatedAt = Clock.System.now().toEpochMilliseconds())
+            }
         } else {
-            scripts.add(stamped)
+            saved = true
+            scripts.add(script.copy(updatedAt = Clock.System.now().toEpochMilliseconds()))
         }
         persist()
+        return saved
     }
 
     fun delete(id: String) {
