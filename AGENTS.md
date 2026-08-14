@@ -100,16 +100,9 @@ teleprompter/
 
 ### Speech Recognition
 - **Android (PRIMARY)**: `VoiceActivityRecognizer` — entirely on-device VAD via RMS energy threshold. No speech-to-text, just voice/silence detection. Advances script at fixed pace while speaking.
-- **Android (fallback)**: `AndroidSpeechRecognizer` — Google's cloud SpeechRecognizer API. Known to fail on Android 12+ with `ERROR_CLIENT` (bug #228221293, default recognizer routes through broken "Android System Intelligence").
+- **Android (fallback)**: `AndroidSpeechRecognizer` — Google's cloud SpeechRecognizer API. Broken on Android 12+ (see Known Issues #2).
 - **iOS**: `SFSpeechRecognizer` via `SpeechRecognizer.ios.kt`
 - `SpeechMatcher.kt` has word-matching logic but is NOT actively used on Android (only iOS). Kept for potential future use.
-
-### Camera/Recording Flow (Android)
-1. User presses Record → `startPlayback()` starts VAD, then `toggleRecording()` starts camera recorder with audio
-2. CameraX captures **video + audio** (`.withAudioEnabled()` produces a single MP4)
-3. `VoiceActivityRecognizer` records raw PCM at 16000 Hz → detects voice activity
-4. After stop: `cameraRecorder.stopRecording()` → `onRecordingFinished(filePath)` sets `lastRecordedFile` directly
-5. Final file: single MP4 with synchronized audio+video from CameraX
 
 ### Compiler Flags
 - `-Xexpect-actual-classes` added in `composeApp/build.gradle.kts` (suppresses Beta warning for expect/actual classes)
@@ -146,14 +139,7 @@ teleprompter/
 # iOS (via Xcode/AppCode)
 # Open iosApp/iosApp.xcodeproj, select simulator, run
 
-# Check Android compilation
-./gradlew :androidApp:assembleDebug
-
-# Check iOS compilation
-./gradlew :composeApp:compileKotlinIosArm64
-./gradlew :composeApp:compileKotlinIosSimulatorArm64
-
-# Check both at once
+# Check both targets at once
 ./gradlew :composeApp:compileKotlinIosArm64 :androidApp:assembleDebug
 ```
 
