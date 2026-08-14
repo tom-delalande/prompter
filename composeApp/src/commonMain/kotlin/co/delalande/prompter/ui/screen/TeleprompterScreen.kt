@@ -351,6 +351,7 @@ private fun TeleprompterContent(
         ) {
                 val textAreaDp = maxHeight
                 val words = viewModel.script.words
+                val lineBreakBefore = viewModel.script.lineBreakBefore
                 val currentIndex = viewModel.currentWordIndex
                 val wordCount = words.size
 
@@ -404,6 +405,14 @@ private fun TeleprompterContent(
                 val offsets = IntArray(windowSize)
                 val fillString = buildAnnotatedString {
                     for (i in windowStart until windowEnd) {
+                        if (i > windowStart) {
+                            if (lineBreakBefore[i]) {
+                                append("\n")
+                            } else {
+                                append("   ")
+                            }
+                        }
+                        offsets[i - windowStart] = length
                         pushStringAnnotation("word", i.toString())
                         withStyle(
                             SpanStyle(
@@ -413,20 +422,22 @@ private fun TeleprompterContent(
                         ) {
                             append(words[i])
                         }
-                        offsets[i - windowStart] = length
-                        append("   ")
                         pop()
                     }
                 }
                 val strokeString = if (textDisplayStyle.borderWidthDp > 0f) {
                     buildAnnotatedString {
                         for (i in windowStart until windowEnd) {
-                            pushStringAnnotation("word", i.toString())
+                            if (i > windowStart) {
+                                if (lineBreakBefore[i]) {
+                                    append("\n")
+                                } else {
+                                    append("   ")
+                                }
+                            }
                             withStyle(SpanStyle(color = borderColor, fontSize = fontSize)) {
                                 append(words[i])
                             }
-                            append("   ")
-                            pop()
                         }
                     }
                 } else null
@@ -436,7 +447,8 @@ private fun TeleprompterContent(
                     fontFamily = fontFamily
                 )
                 val onWordClick: (Int) -> Unit = { offset ->
-                    val annotations = fillString.getStringAnnotations("word", offset, offset)
+                    val end = (offset + 1).coerceAtMost(fillString.length)
+                    val annotations = fillString.getStringAnnotations("word", offset, end)
                     if (annotations.isNotEmpty()) {
                         viewModel.seekTo(annotations.first().item.toInt())
                     }
