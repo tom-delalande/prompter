@@ -444,8 +444,8 @@ private fun TeleprompterContent(
                         pushStringAnnotation("word", i.toString())
                         withStyle(
                             SpanStyle(
-                                color = if (i <= currentIndex) textColor.copy(alpha = 0.45f) else textColor,
-                                background = if (i == currentIndex + 1) Color(0xFF1565C0).copy(alpha = 0.6f) else Color.Transparent,
+                                color = if (i < currentIndex) textColor.copy(alpha = 0.45f) else textColor,
+                                background = if (i == currentIndex) Color(0xFF1565C0).copy(alpha = 0.6f) else Color.Transparent,
                                 fontSize = fontSize
                             )
                         ) {

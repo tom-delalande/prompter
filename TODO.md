@@ -1,0 +1,2 @@
+- Sometimes not words
+- Sometimes last word not detected in highlight
