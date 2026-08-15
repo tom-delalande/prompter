@@ -1,2 +1,1 @@
-- Sometimes not words
-- Sometimes last word not detected in highlight
+- Sometimes not words (STILL AN ISSUE)

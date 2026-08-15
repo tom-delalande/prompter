@@ -28,6 +28,8 @@
     <string>Prompter needs microphone access to record audio with your videos and transcribe speech.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>Prompter uses speech recognition to auto-scroll the script as you read.</string>
+    <key>NSPhotoLibraryAddUsageDescription</key>
+    <string>Prompter saves your recordings to the photo library so you can share them.</string>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
     <key>UIApplicationSceneManifest</key>

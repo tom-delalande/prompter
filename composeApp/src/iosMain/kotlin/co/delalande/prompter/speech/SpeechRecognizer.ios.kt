@@ -1,12 +1,14 @@
 package co.delalande.prompter.speech
 
-import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.cinterop.get
+import co.delalande.prompter.log.Log
+import kotlinx.cinterop.*
 import platform.AVFAudio.*
 import platform.Foundation.*
 import platform.darwin.NSObject
 import platform.Speech.*
 import kotlin.math.sqrt
+
+private const val TAG = "IOSSpeech"
 
 @OptIn(ExperimentalForeignApi::class)
 class IOSSpeechRecognizer : SpeechRecognizer {
@@ -20,9 +22,12 @@ class IOSSpeechRecognizer : SpeechRecognizer {
     private var smoothedLevel = 0f
     private var lastExternalReported = false
     private var isListening = false
+    private var pendingPermissionRequest = false
+    private var hasReportedAudioLevel = false
 
     init {
-        SFSpeechRecognizer.requestAuthorization { _ ->
+        SFSpeechRecognizer.requestAuthorization { status ->
+            Log.i(TAG) { "Speech recognition authorization: $status" }
             recognizer = SFSpeechRecognizer()
             if (isListening) {
                 startRecognitionTask()
@@ -37,14 +42,55 @@ class IOSSpeechRecognizer : SpeechRecognizer {
     override fun startListening() {
         if (audioEngine != null) return
         val session = AVAudioSession.sharedInstance()
-        session.setCategory(AVAudioSessionCategoryRecord, 0uL, null)
-        session.setActive(true, null)
+        when (session.recordPermission) {
+            AVAudioSessionRecordPermissionGranted -> startAudioEngine()
+            AVAudioSessionRecordPermissionUndetermined -> {
+                if (pendingPermissionRequest) return
+                pendingPermissionRequest = true
+                session.requestRecordPermission { granted ->
+                    pendingPermissionRequest = false
+                    if (granted) {
+                        Log.i(TAG) { "Microphone permission granted" }
+                        startAudioEngine()
+                    } else {
+                        Log.w(TAG) { "Microphone permission denied; audio level unavailable" }
+                    }
+                }
+            }
+            else -> Log.w(TAG) { "Microphone permission denied; audio level unavailable" }
+        }
+    }
+
+    private fun startAudioEngine() {
+        if (audioEngine != null) return
+        val session = AVAudioSession.sharedInstance()
+        memScoped {
+            val categoryError = alloc<ObjCObjectVar<NSError?>>()
+            if (!session.setCategory(AVAudioSessionCategoryRecord, 0uL, categoryError.ptr)) {
+                Log.e(TAG) { "Failed to set audio session category: ${categoryError.value?.localizedDescription}" }
+            }
+            val activeError = alloc<ObjCObjectVar<NSError?>>()
+            if (!session.setActive(true, activeError.ptr)) {
+                Log.e(TAG) { "Failed to activate audio session: ${activeError.value?.localizedDescription}" }
+            }
+        }
 
         val engine = AVAudioEngine()
         audioEngine = engine
 
         val node = engine.inputNode
-        val recordingFormat = node.outputFormatForBus(0u)
+        val hardwareFormat = node.outputFormatForBus(0u)
+        val recordingFormat = if (hardwareFormat.sampleRate > 0.0 && hardwareFormat.channelCount > 0u) {
+            hardwareFormat
+        } else {
+            Log.w(TAG) {
+                "Invalid input format (${hardwareFormat.sampleRate}Hz, ${hardwareFormat.channelCount}ch), falling back to 48kHz mono"
+            }
+            AVAudioFormat(48000.0, 1u)
+        }
+        Log.i(TAG) {
+            "Audio engine tap format: ${recordingFormat.sampleRate}Hz, ${recordingFormat.channelCount}ch"
+        }
 
         val request = SFSpeechAudioBufferRecognitionRequest().apply {
             shouldReportPartialResults = true
@@ -59,7 +105,12 @@ class IOSSpeechRecognizer : SpeechRecognizer {
         }
 
         engine.prepare()
-        engine.startAndReturnError(null)
+        memScoped {
+            val startError = alloc<ObjCObjectVar<NSError?>>()
+            if (!engine.startAndReturnError(startError.ptr)) {
+                Log.e(TAG) { "Audio engine failed to start: ${startError.value?.localizedDescription}" }
+            }
+        }
 
         delegate = SpeechRecognitionDelegate(listener)
         isListening = true
@@ -68,6 +119,7 @@ class IOSSpeechRecognizer : SpeechRecognizer {
     }
 
     private fun startRecognitionTask() {
+        if (recognitionTask != null) return
         val request = recognitionRequest ?: return
         val rec = recognizer ?: return
         val d = delegate ?: return
@@ -76,7 +128,7 @@ class IOSSpeechRecognizer : SpeechRecognizer {
 
     private fun reportAudioLevel(buffer: AVAudioPCMBuffer) {
         val frameCount = buffer.frameLength
-        if (frameCount == 0u) return
+        if (frameCount == 0u || buffer.format.channelCount == 0u) return
         val channels = buffer.floatChannelData ?: return
         val channel = channels[0] ?: return
 
@@ -87,6 +139,10 @@ class IOSSpeechRecognizer : SpeechRecognizer {
         }
         val rms = sqrt(sum / frameCount.toInt())
         val level = levelFromRms(rms, maxAmplitude = 1.0)
+        if (!hasReportedAudioLevel && level > 0.01f) {
+            hasReportedAudioLevel = true
+            Log.i(TAG) { "First audio level received (rms=$rms, level=$level)" }
+        }
         smoothedLevel = smoothedLevel * 0.6f + level * 0.4f
         listener?.onAudioLevelChanged(smoothedLevel)
     }
@@ -127,6 +183,8 @@ class IOSSpeechRecognizer : SpeechRecognizer {
         audioEngine = null
         delegate = null
         isListening = false
+        pendingPermissionRequest = false
+        hasReportedAudioLevel = false
         smoothedLevel = 0f
         listener?.onAudioLevelChanged(0f)
     }
@@ -163,6 +221,7 @@ private class SpeechRecognitionDelegate(
         didFinishSuccessfully: Boolean
     ) {
         if (!didFinishSuccessfully) {
+            Log.e(TAG) { "Speech recognition task failed" }
             speechListener?.onError("Recognition task failed")
         }
     }

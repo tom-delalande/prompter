@@ -73,7 +73,7 @@ iosApp/                                # iOS shell: Xcode project (iosApp/Prompt
 
 ### Platform-Specific Notes
 - **`NSObject`**: import from `platform.darwin.NSObject` (not `platform.NSObject` or `kotlin.native`).
-- **`AVCaptureVideoPreviewLayer`**: use named parameter `sessionWithNoConnection` to disambiguate constructors.
+- **`AVCaptureVideoPreviewLayer`**: use the named parameter `session = session` (NOT `sessionWithNoConnection`) to disambiguate the two constructors — `init(session:)` creates the preview connection automatically, `init(sessionWithNoConnection:)` creates a layer that never renders.
 - **`AVAudioEngine`**: in `platform.AVFAudio.*` on iOS.
 - **`UIKitView`**: use `androidx.compose.ui.viewinterop.UIKitView` (not the deprecated `androidx.compose.ui.interop`).
 
