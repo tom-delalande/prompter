@@ -6,19 +6,19 @@ This guide walks through everything you need to do to ship **Prompter** (project
 
 | Item               | Android                                                                                                                    | iOS                                                         |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| App identifiers    | `co.delalande.prompter` (set)                                                                                              | Not set — no Xcode project exists yet                       |
-| Versioning         | `versionCode 1`, `versionName "1.0"` (set)                                                                                 | `CFBundleShortVersionString 1.0`, `CFBundleVersion 1` (set) |
-| Release signing    | **Missing** (falls back to debug keystore)                                                                                 | **Missing** (no team / certificates)                        |
-| Xcode project      | n/a                                                                                                                        | **Missing from repo entirely**                              |
+| App identifiers    | `co.delalande.prompter` (set)                                                                                              | `co.delalande.prompter` (set in `iosApp/Prompter.xcodeproj`) |
+| Versioning         | `versionCode 3`, `versionName "3"` (set)                                                                                   | `CFBundleShortVersionString 1.0`, `CFBundleVersion 1` (set) |
+| Release signing    | **Missing** (falls back to debug keystore)                                                                                 | **Missing** (no team / certificates — automatic signing, team unset) |
+| Xcode project      | n/a                                                                                                                        | Present (`iosApp/Prompter.xcodeproj`, hand-written)         |
 | App icons          | Present (mipmaps)                                                                                                          | Present (`AppIcon.appiconset`, incl. 1024px)                |
 | Store screenshots  | Missing                                                                                                                    | Missing                                                     |
 | Store metadata     | Partial (`fastlane/metadata/android`)                                                                                      | Missing                                                     |
 | Privacy policy URL | **Missing (required)**                                                                                                     | **Missing (required)**                                      |
 | In-app purchases   | Products `co.delalande.prompter.smalltip` / `co.delalande.prompter.largetip` referenced in code, **not created in Play Console** | Same product IDs, **not created in App Store Connect**      |
 
-> Two hard deadlines to keep in mind (today is 2026-07-31):
+> Two hard deadlines to keep in mind (today is 2026-08-15):
 >
-> - **App Store**: since **Apr 28, 2026**, builds must be made with **Xcode 26+** (iOS 26 SDK).
+> - **App Store**: since **Apr 28, 2026**, builds must be made with **Xcode 26+** (iOS 26 SDK). Local dev/TestFlight-from-Xcode can still use Xcode 16.1 because Compose is pinned to ≥ 1.12.
 
 ---
 
@@ -130,43 +130,39 @@ Google now requires a **closed test** for new personal developer accounts before
 
 ## 2. App Store (iOS)
 
-### 2.0 Important: there is no Xcode project in the repo
+### 2.0 The Xcode project (already in the repo)
 
-The repo contains only the iOS _sources_ (`iosApp/iosApp/` — `iOSApp.swift`, `ContentView.swift`, `Info.plist`, `Assets.xcassets`). There is **no `.xcodeproj`**, and `embedAndSignAppleFrameworkForXcode` is not wired up, so nothing can be archived for the App Store yet. You must create the Xcode project that:
+The repo now includes a hand-written Xcode project at **`iosApp/Prompter.xcodeproj`** (target/scheme `Prompter`, bundle ID `co.delalande.prompter`, min iOS 15.0). It already wires up everything `embedAndSignAppleFrameworkForXcode` needs:
 
-1. **Builds the Kotlin framework**: add a **Run Script** build phase (placed _before_ Compile Sources) with:
-
+1. A **Run Script** build phase named "Build ComposeApp Framework" (placed _before_ Compile Sources) that runs:
    ```sh
    cd "$SRCROOT/.."
    ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode
    ```
+   (`$SRCROOT` points into `iosApp/`, so `..` resolves to the repo root.)
+2. **Framework Search Paths** = `$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)`, with `ComposeApp.framework` in the **Frameworks** build phase (static framework — linked, not embedded).
+3. The iOS sources (`iOSApp.swift`, `ContentView.swift`, `Info.plist`, `Assets.xcassets`) and the app icon asset catalog.
+4. `PRODUCT_BUNDLE_IDENTIFIER = co.delalande.prompter` (must be globally unique and match what you register with Apple). **Signing is automatic but the development team is unset** — pick it in Xcode → Signing & Capabilities.
 
-   (`$SRCROOT` here points into `iosApp/`, so the `..` resolves to the repo root.)
+Before archiving, verify:
+- `Info.plist` already uses the empty `UILaunchScreen` dict (no launch storyboard exists) and includes `CADisableMinimumFrameDurationOnPhone = true` (required by Compose ≥ 1.12 or the app aborts at launch).
+- Compose is pinned to **≥ 1.12.0-alpha02** so the project still builds/links on **Xcode 16**; on Xcode 26+ it works as-is. See AGENTS.md "Known Issues & Gotchas".
+- Bump `CFBundleShortVersionString` / `CFBundleVersion` per release — must be unique per uploaded build.
 
-2. **Links `ComposeApp.framework`**: set Framework Search Paths to
-   `$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)`
-   and add `ComposeApp.framework` to **Frameworks, Libraries, and Embedded Content**.
-3. **Includes the existing files**: `iOSApp.swift`, `ContentView.swift`, `Info.plist`, `Assets.xcassets`.
-4. Sets `PRODUCT_BUNDLE_IDENTIFIER` (e.g. `co.delalande.prompter` — must be globally unique and match what you register with Apple) and your development team for signing.
-
-If you don't want to hand-assemble the project, [XcodeGen](https://github.com/yonaskolb/XcodeGen) or a `project.yml` committed to the repo is a cleaner route. Check the official guide: [Build a KMP app with the embedAndSignAppleFrameworkForXcode task](https://kotlinlang.org/docs/multiplatform-integrate-in-existing-app.html).
-
-> Also fix `Info.plist` while you're in there: it references `UILaunchStoryboardName = LaunchScreen`, but no `LaunchScreen.storyboard` exists in the repo. Replace it with the empty `UILaunchScreen` dictionary (recommended) or add a real launch storyboard, or the build/archive will fail.
->
-> You'll also need to bump the version for store submission — `CFBundleShortVersionString 1.0` / `CFBundleVersion 1` is fine to start, but it must be unique per uploaded build.
+Reference: [Build a KMP app with the embedAndSignAppleFrameworkForXcode task](https://kotlinlang.org/docs/multiplatform-integrate-in-existing-app.html).
 
 ### 2.1 Account & App ID
 
 1. Join the **Apple Developer Program** at [developer.apple.com](https://developer.apple.com).
 2. In **Certificates, Identifiers & Profiles → Identifiers**, register an **App ID** (explicit bundle ID, e.g. `co.delalande.prompter`) and enable **Capabilities**: _Sign in with Apple_ is **not** required, but this app uses no special capabilities beyond what the Info.plist permissions cover (camera, mic, speech recognition usage strings are already present).
 
-### 2.2 Create the Xcode project & set signing
+### 2.2 Signing
 
-Following 2.0, create the project, set:
+The project (`iosApp/Prompter.xcodeproj`) is ready; you only need to set signing:
 
-- `PRODUCT_BUNDLE_IDENTIFIER` = your registered App ID.
-- **Signing** = your developer team, **Automatically manage signing** (easiest for a solo dev).
-- Minimum deployment target — pick something like iOS 15–16 (the Kotlin framework supports it; iOS 26 SDK requirement only affects the build SDK, not the min version).
+- **Signing** = your developer team, **Automatically manage signing** (easiest for a solo dev). The team is deliberately unset so the project opens without any team-specific info.
+- `PRODUCT_BUNDLE_IDENTIFIER` is already `co.delalande.prompter` (matches the App ID from 2.1).
+- Minimum deployment target is iOS 15.0 (the Kotlin framework supports it; the iOS 26 SDK requirement only affects the build SDK, not the min version).
 
 Build for a simulator, then a device, and confirm recording + voice-driven scroll work before going further.
 

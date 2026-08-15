@@ -28,13 +28,15 @@
     <string>Prompter needs microphone access to record audio with your videos and transcribe speech.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
     <string>Prompter uses speech recognition to auto-scroll the script as you read.</string>
+    <key>CADisableMinimumFrameDurationOnPhone</key>
+    <true/>
     <key>UIApplicationSceneManifest</key>
     <dict>
         <key>UIApplicationSupportsMultipleScenes</key>
         <false/>
     </dict>
-    <key>UILaunchStoryboardName</key>
-    <string>LaunchScreen</string>
+    <key>UILaunchScreen</key>
+    <dict/>
     <key>UISupportedInterfaceOrientations</key>
     <array>
         <string>UIInterfaceOrientationPortrait</string>

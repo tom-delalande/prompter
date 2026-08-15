@@ -14,7 +14,7 @@ val keystoreProperties = Properties().apply {
 
 android {
     namespace = "co.delalande.prompter"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "co.delalande.prompter"

@@ -36,7 +36,7 @@ kotlin {
     }
     android {
         namespace = "co.delalande.prompter.shared"
-        compileSdk = 36
+        compileSdk = 37
         minSdk = 26
 
         compilerOptions {
