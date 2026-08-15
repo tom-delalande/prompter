@@ -11,7 +11,7 @@ import platform.UIKit.UIViewController
 fun MainViewController(): UIViewController {
     val versionName =
         NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as? String ?: "1.0"
-    val buildInfo = "v$versionName · ${BuildInfo.GIT_COMMIT}"
+    val buildInfo = BuildInfo.GIT_COMMIT
     return ComposeUIViewController {
         App(
             platformStorage = PlatformStorage(),

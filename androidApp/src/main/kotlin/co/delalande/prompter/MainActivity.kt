@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
                 billingManagerFactory = {
                     AndroidBillingManager(this@MainActivity, PlatformStorage(this@MainActivity))
                 },
-                buildInfo = "v${BuildConfig.VERSION_NAME} · ${BuildInfo.GIT_COMMIT}",
+                buildInfo = BuildInfo.GIT_COMMIT,
                 onSaveToPhotos = { filePath, onDone ->
                     Thread {
                         val result = try {
