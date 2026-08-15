@@ -144,8 +144,8 @@ class TeleprompterViewModel(
             pendingWords.removeFirst()
         }
 
-        for (i in 0..pendingWords.size - 2) {
-            val subsetOfPendingWords = pendingWords.subList(i, pendingWords.size - 1)
+        for (i in 0 until pendingWords.size) {
+            val subsetOfPendingWords = pendingWords.subList(i, pendingWords.size)
             val result = SpeechMatcher.match(
                 subsetOfPendingWords.toList(),
                 script.words,
