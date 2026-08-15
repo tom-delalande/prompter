@@ -44,7 +44,6 @@ import co.delalande.prompter.viewmodel.TeleprompterViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlin.math.abs
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
 private const val WINDOW_COVER_BEFORE = 60
@@ -89,13 +88,6 @@ fun TeleprompterScreen(
             recordingElapsedMillis = startTime.elapsedNow().inWholeMilliseconds
         }
     }
-
-//    LaunchedEffect(viewModel.isRecording) {
-//        while (viewModel.currentWordIndex < viewModel.script.words.size) {
-//            viewModel.currentWordIndex++
-//            delay(20.milliseconds)
-//        }
-//    }
 
     LaunchedEffect(viewModel.lastRecordedFile) {
         if (viewModel.lastRecordedFile != null) {
@@ -390,7 +382,6 @@ private fun TeleprompterContent(
                 var estimatedDocHeightPx by remember { mutableStateOf(0f) }
                 var autoScrollInProgress by remember { mutableStateOf(false) }
                 var userScrolling by remember { mutableStateOf(false) }
-                var wordsPerLine by remember { mutableStateOf(1f) }
 
                 val windowSize = windowEnd - windowStart
 
@@ -531,7 +522,6 @@ private fun TeleprompterContent(
                                 }
                                 if (windowSize > 0) {
                                     val newWpl = windowSize.toFloat() / result.lineCount.coerceAtLeast(1)
-                                    if (newWpl != wordsPerLine) wordsPerLine = newWpl
                                     var prev = offsetBefore
                                     for (i in windowStart - 1 downTo 0) {
                                         prev -= if (lineBreakBefore[i + 1]) lineHeightPx else lineHeightPx / newWpl

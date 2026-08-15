@@ -22,10 +22,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
-import java.io.RandomAccessFile
 import java.util.Locale
 import kotlin.math.sqrt
 
@@ -37,10 +34,6 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
     }
 
     private val appContext = context.applicationContext
-    private val outputDir = run {
-        val dirs = android.os.Environment.DIRECTORY_MOVIES
-        context.getExternalFilesDir(dirs) ?: context.filesDir
-    }
     private var recognizer: MLKitInternalRecognizer? = null
     private var listener: SpeechListener? = null
     private var recognitionJob: Job? = null
@@ -50,8 +43,6 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
 
     private var audioRecord: AudioRecord? = null
     private var audioPipeWriteEnd: ParcelFileDescriptor? = null
-    private var audioOutputPath: String? = null
-    private var totalAudioBytes: Long = 0
     private var smoothedLevel = 0f
     private var lastExternalReported = false
 
@@ -59,23 +50,15 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         this.listener = listener
     }
 
-    override fun setAudioOutputPath(path: String) {
-        audioOutputPath = path
-    }
-
     override fun startListening() {
         if (isActive) return
         isActive = true
-        totalAudioBytes = 0
         Log.d(TAG, "--- startListening ---")
 
         val rec = createRecognizer() ?: return
-        val audioSource = startAudioCapture(audioOutputPath)
+        val audioSource = startAudioCapture()
 
         if (audioSource == null) {
-            if (audioOutputPath != null) {
-                listener?.onError("Failed to start audio capture")
-            }
             isActive = false
             return
         }
@@ -153,8 +136,7 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         }
     }
 
-    private fun startAudioCapture(path: String?): AudioSource? {
-        val fullPath = path?.let { File(outputDir, it).absolutePath }
+    private fun startAudioCapture(): AudioSource? {
         val bufferSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
@@ -181,10 +163,6 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         val pfdRead = pipe[0]
         audioRecord = record
 
-        if (fullPath != null) {
-            writeWavHeader(fullPath)
-        }
-
         try {
             record.startRecording()
         } catch (e: Exception) {
@@ -199,11 +177,10 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         reportExternalMic(record)
         smoothedLevel = 0f
 
-        Log.d(TAG, "AudioRecord started at ${SAMPLE_RATE}Hz" + if (fullPath == null) " (monitoring)" else "")
+        Log.d(TAG, "AudioRecord started at ${SAMPLE_RATE}Hz")
 
         audioCaptureJob = scope.launch(Dispatchers.Default) {
             val buffer = ByteArray(bufferSize)
-            val fos = fullPath?.let { FileOutputStream(it, true) }
             val pipeOut = ParcelFileDescriptor.AutoCloseOutputStream(audioPipeWriteEnd!!)
 
             try {
@@ -213,10 +190,6 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
                         reportExternalMic(record)
                         reportAudioLevel(buffer, bytesRead)
                         pipeOut.write(buffer, 0, bytesRead)
-                        if (fos != null) {
-                            fos.write(buffer, 0, bytesRead)
-                            totalAudioBytes += bytesRead
-                        }
                     } else if (bytesRead < 0) {
                         Log.e(TAG, "AudioRecord read error: $bytesRead")
                         break
@@ -225,21 +198,8 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
             } catch (e: IOException) {
                 if (isActive) Log.e(TAG, "Audio capture IO error", e)
             } finally {
-                try { fos?.close() } catch (_: Exception) {}
                 try { pipeOut.close() } catch (_: Exception) {}
                 stopAudioCapture()
-                if (fullPath != null) {
-                    updateWavHeader(fullPath)
-                    Log.d(TAG, "Audio capture ended, ${totalAudioBytes} bytes written to $fullPath")
-                    if (totalAudioBytes > 0) {
-                        scope.launch {
-                            println("STOPFLOW: MLKit calling onAudioRecorded fullPath=$fullPath")
-                            listener?.onAudioRecorded(fullPath)
-                        }
-                    } else {
-                        println("STOPFLOW: MLKit skip onAudioRecorded totalAudioBytes=$totalAudioBytes")
-                    }
-                }
             }
         }
 
@@ -274,50 +234,6 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         val level = AudioInput.levelFromRms(rms)
         smoothedLevel = smoothedLevel * 0.6f + level * 0.4f
         listener?.onAudioLevelChanged(smoothedLevel)
-    }
-
-    private fun writeWavHeader(path: String) {
-        RandomAccessFile(path, "rw").use { raf ->
-            raf.write("RIFF".toByteArray())
-            writeLeInt(raf, 0)
-            raf.write("WAVE".toByteArray())
-            raf.write("fmt ".toByteArray())
-            writeLeInt(raf, 16)
-            writeLeShort(raf, 1)
-            writeLeShort(raf, 1)
-            writeLeInt(raf, SAMPLE_RATE)
-            writeLeInt(raf, SAMPLE_RATE * 2)
-            writeLeShort(raf, 2)
-            writeLeShort(raf, 16)
-            raf.write("data".toByteArray())
-            writeLeInt(raf, 0)
-        }
-    }
-
-    private fun updateWavHeader(path: String) {
-        if (totalAudioBytes <= 0) return
-        try {
-            RandomAccessFile(path, "rw").use { raf ->
-                raf.seek(4)
-                writeLeInt(raf, (36 + totalAudioBytes).toInt())
-                raf.seek(40)
-                writeLeInt(raf, totalAudioBytes.toInt())
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to update WAV header", e)
-        }
-    }
-
-    private fun writeLeInt(raf: RandomAccessFile, value: Int) {
-        raf.write((value shr 0) and 0xFF)
-        raf.write((value shr 8) and 0xFF)
-        raf.write((value shr 16) and 0xFF)
-        raf.write((value shr 24) and 0xFF)
-    }
-
-    private fun writeLeShort(raf: RandomAccessFile, value: Int) {
-        raf.write((value shr 0) and 0xFF)
-        raf.write((value shr 8) and 0xFF)
     }
 
     private suspend fun startRecognitionFlow(rec: MLKitInternalRecognizer, source: AudioSource) {
@@ -357,24 +273,18 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
 
     override fun stopListening() {
         Log.d(TAG, "stopListening called")
-        println("STOPFLOW: MLKit.stopListening")
         isActive = false
         recognitionJob?.cancel()
         recognitionJob = null
-        println("STOPFLOW: MLKit recognitionJob cancelled")
         audioCaptureJob?.cancel()
         audioCaptureJob = null
-        println("STOPFLOW: MLKit audioCaptureJob cancelled")
         stopAudioCapture()
-        println("STOPFLOW: MLKit stopAudioCapture done")
         scope.launch {
             try {
                 recognizer?.stopRecognition()
                 Log.d(TAG, "stopRecognition completed")
-                println("STOPFLOW: MLKit stopRecognition completed")
             } catch (e: Exception) {
                 Log.e(TAG, "stopRecognition threw", e)
-                println("STOPFLOW: MLKit stopRecognition threw: ${e.message}")
             }
         }
     }

@@ -101,17 +101,12 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
             .prepareRecording(context, outputOptions)
             .withAudioEnabled()
                 .start(executor) { recordEvent ->
-                println("STOPFLOW: CameraX recordEvent=${recordEvent::class.simpleName}")
                 when (recordEvent) {
                     is VideoRecordEvent.Start -> {
-                        println("STOPFLOW: CameraX Start event")
                         mainHandler.post { listener?.onRecordingStarted() }
                     }
                     is VideoRecordEvent.Finalize -> {
                         val path = currentOutputPath ?: file.absolutePath
-                        println("STOPFLOW: CameraX Finalize event hasError=${recordEvent.hasError()} error=${recordEvent.error} outputPath=$path")
-                        val f = File(path)
-                        println("STOPFLOW: CameraX output file exists=${f.exists()} length=${f.length()}")
                         mainHandler.post {
                             if (recordEvent.hasError()) {
                                 listener?.onError("Recording error: ${recordEvent.error}")
@@ -126,10 +121,8 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
     }
 
     override fun stopRecording() {
-        println("STOPFLOW: AndroidCameraRecorder.stopRecording activeRecording=$activeRecording")
         activeRecording?.close()
         activeRecording = null
-        println("STOPFLOW: AndroidCameraRecorder.stopRecording done")
     }
 
     override fun switchCamera() {

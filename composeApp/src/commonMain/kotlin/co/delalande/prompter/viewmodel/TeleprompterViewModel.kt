@@ -18,8 +18,6 @@ class TeleprompterViewModel(
     var currentWordIndex by mutableStateOf(0)
     var isRecording by mutableStateOf(false)
     var isPlaying by mutableStateOf(false)
-    var isMatching by mutableStateOf(true)
-    var recognizedText by mutableStateOf("")
     var scrollOffset by mutableStateOf(0f)
     var isFrontCamera by mutableStateOf(true)
     var recordingError by mutableStateOf<String?>(null)
@@ -34,11 +32,9 @@ class TeleprompterViewModel(
     private var recordingCounter = 0
     private var opCounter = 0L
     private var currentVideoPath = ""
-    private var currentAudioPath = ""
 
     private val speechListener = object : SpeechListener {
         override fun onPartialResult(text: String) {
-            recognizedText = text
             if (!isPlaying) return
             if (text.isBlank()) return
             processSpeech(text)
@@ -54,7 +50,6 @@ class TeleprompterViewModel(
             }
         }
 
-        override fun onAudioRecorded(path: String) {}
         override fun onAudioLevelChanged(level: Float) {
             audioLevel = level
         }
@@ -85,7 +80,6 @@ class TeleprompterViewModel(
     init {
         speechRecognizer.setListener(speechListener)
         cameraRecorder.setListener(recordingListener)
-        startMonitoring()
     }
 
     fun startMonitoring() {
@@ -94,10 +88,8 @@ class TeleprompterViewModel(
 
     fun startPlayback() {
         isPlaying = true
-        isMatching = true
         pendingWords.clear()
         lastPartialTokens = emptyList()
-        speechRecognizer.setAudioOutputPath(currentAudioPath)
         speechRecognizer.startListening()
     }
 
@@ -113,19 +105,15 @@ class TeleprompterViewModel(
         recordingCounter++
         opCounter++
         currentVideoPath = "teleprompter_${recordingCounter}_$opCounter.mp4"
-        currentAudioPath = "audio_${recordingCounter}_$opCounter.wav"
-        println("STOPFLOW: startRecording video=$currentVideoPath audio=$currentAudioPath")
         recordingError = null
         lastRecordedFile = null
         cameraRecorder.startRecording(currentVideoPath)
     }
 
     private fun stopRecording() {
-        println("STOPFLOW: stopRecording called")
         isProcessing = true
         isPlaying = false
         cameraRecorder.stopRecording()
-        println("STOPFLOW: stopRecording finished")
     }
 
     fun switchCamera() {
@@ -163,7 +151,6 @@ class TeleprompterViewModel(
                 script.words,
                 currentWordIndex
             )
-            isMatching = result.isMatching
             if (result.isMatching && result.newWordIndex > currentWordIndex) {
                 currentWordIndex = minOf(result.newWordIndex, script.wordCount())
                 updateScrollOffset()
@@ -185,10 +172,6 @@ class TeleprompterViewModel(
         updateScrollOffset()
         pendingWords.clear()
         lastPartialTokens = emptyList()
-    }
-
-    fun clearLastRecording() {
-        lastRecordedFile = null
     }
 
     fun destroy() {

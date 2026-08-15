@@ -52,10 +52,9 @@ teleprompter/
 │       │   │   ├── CameraPreview.android.kt      # CameraX preview + permissions
 │       │   │   └── CameraRecorder.android.kt     # CameraX video+audio recording
 │       │   ├── speech/
-│       │   │   ├── MLKitSpeechRecognizer.kt      # PRIMARY: ML Kit voice recognition
-│       │   │   ├── VoiceActivityRecognizer.kt    # RMS-based VAD fallback
-│       │   │   └── WhisperSpeechRecognizer.kt    # OpenAI Whisper API (unused)
-│       │   └── ui/screen/PlatformActual.kt       # PlatformCompositionContext
+│       │   │   ├── AudioInput.kt               # AudioDevice helpers (external mic routing, RMS→level)
+│       │   │   └── MLKitSpeechRecognizer.kt    # ML Kit voice recognition (sole Android recognizer)
+│       │   └── ui/screen/PlatformActual.kt     # PlatformCompositionContext
 │       │
 │       └── iosMain/kotlin/co/delalande/prompter/
 │           ├── data/PlatformStorage.ios.kt   # iOS file I/O
@@ -93,16 +92,15 @@ teleprompter/
 - Holds all mutable state as Compose `mutableStateOf` properties (for reactivity)
 - Manages: speech recognizer, camera recorder
 - Two parallel recording paths (Android only):
-  1. **VoiceActivityRecognizer** (or ML Kit): AudioRecord → voice detection → advances `currentWordIndex`
+  1. **MLKitSpeechRecognizer**: AudioRecord → speech recognition → advances `currentWordIndex`
   2. **AndroidCameraRecorder**: CameraX record video + audio (`.withAudioEnabled()` produces a single MP4)
 - On camera finish: `onRecordingFinished(filePath)` sets `lastRecordedFile` directly (no merge needed)
-- `onVoiceActivityChanged` and `onAudioRecorded` have default empty implementations in `SpeechListener` so iOS doesn't need to implement them
+- `onVoiceActivityChanged`, `onAudioLevelChanged`, and `onExternalMicrophoneChanged` have default empty implementations in `SpeechListener` so iOS doesn't need to implement them
 
 ### Speech Recognition
-- **Android (PRIMARY)**: `VoiceActivityRecognizer` — entirely on-device VAD via RMS energy threshold. No speech-to-text, just voice/silence detection. Advances script at fixed pace while speaking.
-- **Android (fallback)**: `AndroidSpeechRecognizer` — Google's cloud SpeechRecognizer API. Broken on Android 12+ (see Known Issues #2).
+- **Android**: `MLKitSpeechRecognizer` — on-device speech recognition via `com.google.mlkit:genai-speech-recognition`. Advances the script by matching partial transcription against the script words.
 - **iOS**: `SFSpeechRecognizer` via `SpeechRecognizer.ios.kt`
-- `SpeechMatcher.kt` has word-matching logic but is NOT actively used on Android (only iOS). Kept for potential future use.
+- `SpeechMatcher.kt` holds the word-matching logic used by both platforms.
 
 ### Compiler Flags
 - `-Xexpect-actual-classes` added in `composeApp/build.gradle.kts` (suppresses Beta warning for expect/actual classes)
@@ -145,11 +143,9 @@ teleprompter/
 
 ## Known Issues & Gotchas
 
-1. **AudioRecord conflicts**: `VoiceActivityRecognizer` + CameraX `withAudioEnabled()` both use `AudioRecord` simultaneously. Works on Android 10+ (shared mic mode). If VAD is unreliable, combine into a single AudioRecord that provides both voice activity detection and audio file saving.
+1. **AudioRecord conflicts**: `MLKitSpeechRecognizer`'s `AudioRecord` + CameraX `withAudioEnabled()` both use the microphone simultaneously. Works on Android 10+ (shared mic mode).
 
-2. **Android SpeechRecognizer ERROR_CLIENT on Android 12+**: The default recognizer routes through "Android System Intelligence" which is broken for third-party apps. Fix: go to Settings → Apps → Default apps → Digital assistant app → Voice input → select "Speech Services by Google". Or use `VoiceActivityRecognizer`.
-
-3. **No coroutines library dependency**: `kotlinx.coroutines` is a transitive dependency from Compose Multiplatform but not declared in `libs.versions.toml`. To use coroutines explicitly in commonMain, add `implementation(kotlinx.coroutines.core)` to dependencies.
+2. **No coroutines library dependency**: `kotlinx.coroutines` is a transitive dependency from Compose Multiplatform but not declared in `libs.versions.toml`. To use coroutines explicitly in commonMain, add `implementation(kotlinx.coroutines.core)` to dependencies.
 
 ## Debugging on the Physical Android Device (preferred workflow)
 
