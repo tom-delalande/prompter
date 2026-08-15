@@ -10,6 +10,7 @@ import co.delalande.prompter.recording.RecordingListener
 import co.delalande.prompter.speech.SpeechListener
 import co.delalande.prompter.speech.SpeechMatcher
 import co.delalande.prompter.speech.SpeechRecognizer
+import kotlin.time.Clock
 
 class TeleprompterViewModel(
     val script: Script,
@@ -31,7 +32,6 @@ class TeleprompterViewModel(
     private var lastPartialTokens: List<String> = emptyList()
     private val maxPendingWords = 40
     private var recordingCounter = 0
-    private var opCounter = 0L
     private var currentVideoPath = ""
 
     private val speechListener = object : SpeechListener {
@@ -108,8 +108,7 @@ class TeleprompterViewModel(
 
     private fun startRecording() {
         recordingCounter++
-        opCounter++
-        currentVideoPath = "teleprompter_${recordingCounter}_$opCounter.mp4"
+        currentVideoPath = "teleprompter_${recordingCounter}_${Clock.System.now().toEpochMilliseconds()}.mp4"
         recordingError = null
         lastRecordedFile = null
         Log.i(TAG) { "startRecording -> $currentVideoPath" }
@@ -163,8 +162,7 @@ class TeleprompterViewModel(
                 Log.v(TAG) { "Speech advanced to word $currentWordIndex" }
                 updateScrollOffset()
                 val consumed = result.consumedWords.coerceAtMost(subsetOfPendingWords.size)
-                repeat(i) { pendingWords.removeFirst() }
-                repeat(consumed) { pendingWords.removeFirst() }
+                repeat(i + consumed) { pendingWords.removeFirst() }
                 return
             }
         }

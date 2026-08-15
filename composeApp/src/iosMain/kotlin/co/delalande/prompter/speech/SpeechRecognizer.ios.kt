@@ -6,7 +6,6 @@ import platform.AVFAudio.*
 import platform.Foundation.*
 import platform.darwin.NSObject
 import platform.Speech.*
-import kotlin.math.ln
 import kotlin.math.sqrt
 
 @OptIn(ExperimentalForeignApi::class)
@@ -87,10 +86,7 @@ class IOSSpeechRecognizer : SpeechRecognizer {
             sum += v * v
         }
         val rms = sqrt(sum / frameCount.toInt())
-        val level = if (rms <= 0.0) 0f else {
-            val db = 20.0 * ln(rms) / ln(10.0)
-            ((db + 45.0) / 45.0).coerceIn(0.0, 1.0).toFloat()
-        }
+        val level = levelFromRms(rms, maxAmplitude = 1.0)
         smoothedLevel = smoothedLevel * 0.6f + level * 0.4f
         listener?.onAudioLevelChanged(smoothedLevel)
     }

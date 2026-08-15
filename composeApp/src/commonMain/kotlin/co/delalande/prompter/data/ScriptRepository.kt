@@ -1,25 +1,16 @@
 package co.delalande.prompter.data
 
 import co.delalande.prompter.model.Script
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import kotlin.time.Clock
 
-class ScriptRepository(private val storage: PlatformStorage) {
-    private val json = Json { ignoreUnknownKeys = true }
+class ScriptRepository(storage: PlatformStorage) {
+    private val json = JsonStorage(storage)
     private var scripts: MutableList<Script> = mutableListOf()
     private var loaded = false
 
     fun loadAll(): List<Script> {
         if (!loaded) {
-            val data = storage.readFile(SCRIPTS_FILE)
-            if (data != null) {
-                try {
-                    scripts = json.decodeFromString<List<Script>>(data).toMutableList()
-                } catch (_: Exception) {
-                    scripts = mutableListOf()
-                }
-            }
+            scripts = json.loadOr(SCRIPTS_FILE, emptyList<Script>()).toMutableList()
             loaded = true
         }
         return scripts.toList()
@@ -32,20 +23,20 @@ class ScriptRepository(private val storage: PlatformStorage) {
 
     fun save(script: Script): Boolean {
         loadAll()
-        var saved = false
+        val now = Clock.System.now().toEpochMilliseconds()
         val index = scripts.indexOfFirst { it.id == script.id }
         if (index >= 0) {
             val existing = scripts[index]
-            if (existing.words != script.words) {
-                saved = true
-                scripts[index] = script.copy(updatedAt = Clock.System.now().toEpochMilliseconds())
+            if (existing.words == script.words) {
+                persist()
+                return false
             }
+            scripts[index] = script.copy(updatedAt = now)
         } else {
-            saved = true
-            scripts.add(script.copy(updatedAt = Clock.System.now().toEpochMilliseconds()))
+            scripts.add(script.copy(updatedAt = now))
         }
         persist()
-        return saved
+        return true
     }
 
     fun delete(id: String) {
@@ -55,8 +46,7 @@ class ScriptRepository(private val storage: PlatformStorage) {
     }
 
     private fun persist() {
-        val data = json.encodeToString(scripts)
-        storage.writeFile(SCRIPTS_FILE, data)
+        json.save(SCRIPTS_FILE, scripts)
     }
 
     companion object {

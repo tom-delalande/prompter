@@ -264,13 +264,8 @@ private fun FontDropdown(
     }
 }
 
-private fun fontFamilyLabel(name: String): String = when (name) {
-    "Sans Serif" -> "Sans Serif"
-    "Serif" -> "Serif"
-    "Monospace" -> "Monospace"
-    "Cursive" -> "Cursive"
-    else -> "System Default"
-}
+private fun fontFamilyLabel(name: String): String =
+    if (name == "Default") "System Default" else name
 
 @Composable
 private fun ColorSwatchRow(

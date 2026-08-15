@@ -18,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import kotlinx.coroutines.delay
 import co.delalande.prompter.billing.BillingManager
 import co.delalande.prompter.data.DebugRepository
 import co.delalande.prompter.data.PlatformStorage
@@ -35,6 +34,7 @@ import co.delalande.prompter.ui.screen.SettingsScreen
 import co.delalande.prompter.ui.screen.TeleprompterScreen
 import co.delalande.prompter.ui.theme.TeleprompterTheme
 import co.delalande.prompter.viewmodel.TeleprompterViewModel
+import kotlinx.coroutines.delay
 
 enum class Screen {
     ScriptList, ScriptEditor, Teleprompter, Settings
@@ -68,6 +68,16 @@ fun App(
     var isSavingVideo by remember { mutableStateOf(false) }
     var showSavingDialog by remember { mutableStateOf(false) }
 
+    val openTeleprompter: (Script) -> Unit = { script ->
+        teleprompterViewModel = TeleprompterViewModel(
+            script = script,
+            speechRecognizer = speechRecognizerFactory(),
+            cameraRecorder = cameraRecorderFactory(),
+        )
+        previousScreenBeforeTeleprompter = currentScreen
+        currentScreen = Screen.Teleprompter
+    }
+
     LaunchedEffect(currentScreen) {
         Log.i(TAG) { "Screen: $currentScreen" }
     }
@@ -87,15 +97,7 @@ fun App(
                             editingScriptId = script.id
                             currentScreen = Screen.ScriptEditor
                         },
-                        onPlayScript = { script ->
-                            teleprompterViewModel = TeleprompterViewModel(
-                                script = script,
-                                speechRecognizer = speechRecognizerFactory(),
-                                cameraRecorder = cameraRecorderFactory(),
-                            )
-                            previousScreenBeforeTeleprompter = currentScreen
-                            currentScreen = Screen.Teleprompter
-                        },
+                        onPlayScript = openTeleprompter,
                         onOpenSettings = { currentScreen = Screen.Settings }
                     )
                 }
@@ -105,15 +107,7 @@ fun App(
                         scriptId = editingScriptId,
                         repository = repository,
                         onBack = { currentScreen = Screen.ScriptList },
-                        onPlay = { script ->
-                            teleprompterViewModel = TeleprompterViewModel(
-                                script = script,
-                                speechRecognizer = speechRecognizerFactory(),
-                                cameraRecorder = cameraRecorderFactory(),
-                            )
-                            previousScreenBeforeTeleprompter = currentScreen
-                            currentScreen = Screen.Teleprompter
-                        }
+                        onPlay = openTeleprompter
                     )
                 }
 
@@ -130,11 +124,12 @@ fun App(
 
                 Screen.Teleprompter -> {
                     teleprompterViewModel?.let { vm ->
+                        val settings = remember(vm) { settingsRepository.load() }
                         TeleprompterScreen(
                             viewModel = vm,
                             debugRepository = debugRepository,
-                            defaultCameraMode = settingsRepository.load().defaultCameraMode,
-                            textDisplayStyle = settingsRepository.load().textDisplayStyle,
+                            defaultCameraMode = settings.defaultCameraMode,
+                            textDisplayStyle = settings.textDisplayStyle,
                             onBack = {
                                 teleprompterViewModel = null
                                 currentScreen = Screen.ScriptList

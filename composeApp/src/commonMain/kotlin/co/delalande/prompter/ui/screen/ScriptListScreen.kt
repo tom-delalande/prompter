@@ -21,8 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import co.delalande.prompter.billing.BillingManager
-import co.delalande.prompter.billing.SMALL_TIP_PRODUCT_ID
 import co.delalande.prompter.billing.LARGE_TIP_PRODUCT_ID
+import co.delalande.prompter.billing.SMALL_TIP_PRODUCT_ID
 import co.delalande.prompter.data.ScriptRepository
 import co.delalande.prompter.model.Script
 import co.delalande.prompter.ui.formatLastUpdated
@@ -169,35 +169,24 @@ fun ScriptListScreen(
     }
 
     if (showTipDialog) {
+        val purchase: (String) -> Unit = { productId ->
+            isPurchasing = true
+            dialogMessage = null
+            billingManager.purchase(productId) { success ->
+                isPurchasing = false
+                if (success) {
+                    isPremium = true
+                    showTipDialog = false
+                } else {
+                    dialogMessage = "Purchase could not be completed. Please try again."
+                }
+            }
+        }
         TipDialog(
             isPurchasing = isPurchasing,
             message = dialogMessage,
-            onBuy10 = {
-                isPurchasing = true
-                dialogMessage = null
-                billingManager.purchase(SMALL_TIP_PRODUCT_ID) { success ->
-                    isPurchasing = false
-                    if (success) {
-                        isPremium = true
-                        showTipDialog = false
-                    } else {
-                        dialogMessage = "Purchase could not be completed. Please try again."
-                    }
-                }
-            },
-            onBuy25 = {
-                isPurchasing = true
-                dialogMessage = null
-                billingManager.purchase(LARGE_TIP_PRODUCT_ID) { success ->
-                    isPurchasing = false
-                    if (success) {
-                        isPremium = true
-                        showTipDialog = false
-                    } else {
-                        dialogMessage = "Purchase could not be completed. Please try again."
-                    }
-                }
-            },
+            onBuy10 = { purchase(SMALL_TIP_PRODUCT_ID) },
+            onBuy25 = { purchase(LARGE_TIP_PRODUCT_ID) },
             onRestore = {
                 isPurchasing = true
                 dialogMessage = null

@@ -11,12 +11,16 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.lifecycleScope
 import co.delalande.prompter.billing.AndroidBillingManager
 import co.delalande.prompter.data.PlatformStorage
 import co.delalande.prompter.log.initLogging
 import co.delalande.prompter.model.SaveResult
 import co.delalande.prompter.recording.AndroidCameraRecorder
 import co.delalande.prompter.speech.MLKitSpeechRecognizer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -39,14 +43,16 @@ class MainActivity : ComponentActivity() {
                 },
                 buildInfo = "v${BuildConfig.VERSION_NAME} · ${BuildInfo.GIT_COMMIT}",
                 onSaveToPhotos = { filePath, onDone ->
-                    Thread {
-                        val result = try {
-                            SaveResult(uri = saveVideoToMediaStore(filePath).toString())
-                        } catch (e: Exception) {
-                            SaveResult(error = e.message ?: "Unknown error")
+                    lifecycleScope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            try {
+                                SaveResult(uri = saveVideoToMediaStore(filePath).toString())
+                            } catch (e: Exception) {
+                                SaveResult(error = e.message ?: "Unknown error")
+                            }
                         }
-                        runOnUiThread { onDone(result) }
-                    }.start()
+                        onDone(result)
+                    }
                 },
                 onOpenVideo = { uriString -> openVideo(uriString) }
             )

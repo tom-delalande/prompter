@@ -4,11 +4,10 @@ import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.AudioRecord
-import kotlin.math.ln
 
 internal object AudioInput {
 
-    private val MAX_16BIT = 32767.0
+    private const val MAX_16BIT = 32767.0
 
     fun isExternalDevice(device: AudioDeviceInfo?): Boolean {
         if (device == null) return false
@@ -38,9 +37,5 @@ internal object AudioInput {
         return external
     }
 
-    fun levelFromRms(rms: Double): Float {
-        if (rms <= 0.0) return 0f
-        val db = 20.0 * ln(rms / MAX_16BIT) / ln(10.0)
-        return ((db + 45.0) / 45.0).coerceIn(0.0, 1.0).toFloat()
-    }
+    fun levelFromRms(rms: Double): Float = levelFromRms(rms, MAX_16BIT)
 }

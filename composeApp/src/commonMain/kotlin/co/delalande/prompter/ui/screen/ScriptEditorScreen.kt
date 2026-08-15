@@ -42,21 +42,17 @@ fun ScriptEditorScreen(
     var content by remember { mutableStateOf(initialContent) }
     var lastUpdatedAt by remember { mutableStateOf(existing?.updatedAt ?: 0L) }
 
-    fun currentScript(): Script {
-        return Script(
-            id = currentId,
-            title = title.ifBlank { "Untitled" },
-            content = content
-        )
-    }
+    fun currentScript(): Script = Script(
+        id = currentId,
+        title = title.ifBlank { "Untitled" },
+        content = content
+    )
 
     fun hasText() = title.isNotBlank() || content.isNotBlank()
 
     fun save() {
-        if (hasText()) {
-            if (repository.save(currentScript())) {
-                lastUpdatedAt = currentTimeMillis()
-            }
+        if (hasText() && repository.save(currentScript())) {
+            lastUpdatedAt = currentTimeMillis()
         }
     }
 
@@ -75,40 +71,40 @@ fun ScriptEditorScreen(
     SystemBackHandler(onBack = { save(); onBack() })
 
     Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            topBar = {
-                TopAppBar(
-                    title = {},
-                    navigationIcon = {
-                        TextButton(onClick = { save(); onBack() }) {
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = {},
+                navigationIcon = {
+                    TextButton(onClick = { save(); onBack() }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Back")
+                    }
+                },
+                actions = {
+                    if (hasText()) {
+                        TextButton(onClick = { save(); onPlay(currentScript()) }) {
                             Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
+                                Icons.Filled.PlayArrow,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Back")
+                            Text("Play")
                         }
-                    },
-                    actions = {
-                        if (hasText()) {
-                            TextButton(onClick = { save(); onPlay(currentScript()) }) {
-                                Icon(
-                                    Icons.Filled.PlayArrow,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("Play")
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
-                    )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
                 )
-            }
-        ) { padding ->
+            )
+        }
+    ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -130,58 +126,29 @@ fun ScriptEditorScreen(
                         .padding(20.dp)
                 ) {
                     Column {
-                        BasicTextField(
+                        HintedTextField(
                             value = title,
                             onValueChange = { title = it },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
+                            hint = "Title",
                             textStyle = TextStyle(
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurface,
                             ),
-                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                            decorationBox = { innerTextField ->
-                                Box {
-                                    if (title.isEmpty()) {
-                                        Text(
-                                            "Title",
-                                            style = TextStyle(
-                                                fontSize = 24.sp,
-                                                fontWeight = FontWeight.SemiBold,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
-                                            )
-                                        )
-                                    }
-                                    innerTextField()
-                                }
-                            }
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        BasicTextField(
+                        HintedTextField(
                             value = content,
                             onValueChange = { content = it },
-                            modifier = Modifier.fillMaxWidth(),
+                            hint = "Take a note...",
                             textStyle = TextStyle(
                                 fontSize = 16.sp,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 lineHeight = 24.sp,
                             ),
-                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                            decorationBox = { innerTextField ->
-                                Box {
-                                    if (content.isEmpty()) {
-                                        Text(
-                                            "Take a note...",
-                                            style = TextStyle(
-                                                fontSize = 16.sp,
-                                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
-                                            )
-                                        )
-                                    }
-                                    innerTextField()
-                                }
-                            }
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -227,6 +194,38 @@ fun ScriptEditorScreen(
             }
         }
     }
+}
+
+@Composable
+private fun HintedTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    hint: String,
+    textStyle: TextStyle,
+    singleLine: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = singleLine,
+        modifier = modifier,
+        textStyle = textStyle,
+        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+        decorationBox = { innerTextField ->
+            Box {
+                if (value.isEmpty()) {
+                    Text(
+                        hint,
+                        style = textStyle.copy(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
+                        )
+                    )
+                }
+                innerTextField()
+            }
+        }
+    )
 }
 
 private var idCounter = 0L

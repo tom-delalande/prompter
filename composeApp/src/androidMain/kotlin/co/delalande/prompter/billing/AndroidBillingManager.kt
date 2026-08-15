@@ -27,16 +27,9 @@ class AndroidBillingManager(
     private var restoreCallback: ((Boolean) -> Unit)? = null
 
     private val purchasesUpdatedListener = PurchasesUpdatedListener { result, purchases ->
-        when (result.responseCode) {
-            BillingClient.BillingResponseCode.OK -> {
-                if (hasPremium(purchases)) {
-                    setPremium(true)
-                }
-                purchaseCallback?.invoke(hasPremium(purchases))
-            }
-            BillingClient.BillingResponseCode.USER_CANCELED -> purchaseCallback?.invoke(false)
-            else -> purchaseCallback?.invoke(false)
-        }
+        val success = result.responseCode == BillingClient.BillingResponseCode.OK && hasPremium(purchases)
+        if (success) setPremium(true)
+        purchaseCallback?.invoke(success)
         purchaseCallback = null
     }
 

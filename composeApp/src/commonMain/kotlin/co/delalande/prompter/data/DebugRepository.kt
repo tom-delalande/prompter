@@ -2,25 +2,14 @@ package co.delalande.prompter.data
 
 import co.delalande.prompter.log.Log
 import co.delalande.prompter.model.DebugSettings
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
-class DebugRepository(private val storage: PlatformStorage) {
-    private val json = Json { ignoreUnknownKeys = true }
+class DebugRepository(storage: PlatformStorage) {
+    private val json = JsonStorage(storage)
     private var cached: DebugSettings? = null
 
     fun load(): DebugSettings {
         if (cached == null) {
-            val data = storage.readFile(DEBUG_FILE)
-            cached = if (data != null) {
-                try {
-                    json.decodeFromString<DebugSettings>(data)
-                } catch (_: Exception) {
-                    DebugSettings()
-                }
-            } else {
-                DebugSettings()
-            }
+            cached = json.loadOr(DEBUG_FILE, DebugSettings())
             Log.verboseEnabled = cached!!.verboseLogging
         }
         return cached!!
@@ -30,7 +19,7 @@ class DebugRepository(private val storage: PlatformStorage) {
         cached = settings
         Log.verboseEnabled = settings.verboseLogging
         Log.d(TAG) { "Debug settings saved: $settings" }
-        storage.writeFile(DEBUG_FILE, json.encodeToString(settings))
+        json.save(DEBUG_FILE, settings)
     }
 
     companion object {
