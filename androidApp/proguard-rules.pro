@@ -22,3 +22,12 @@
 -keepclasseswithmembers class co.delalande.prompter.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
+
+# Strip verbose/debug/info logging in release builds.
+# The lazy message lambdas are removed together with the calls, so no string
+# interpolation cost remains. warn/error still log.
+-assumenosideeffects class co.delalande.prompter.log.Log {
+    public void v(java.lang.String, kotlin.jvm.functions.Function0);
+    public void d(java.lang.String, kotlin.jvm.functions.Function0);
+    public void i(java.lang.String, kotlin.jvm.functions.Function0);
+}

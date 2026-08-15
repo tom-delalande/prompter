@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import co.delalande.prompter.data.DebugRepository
 import co.delalande.prompter.model.CameraMode
 import co.delalande.prompter.model.TextDisplayStyle
 import co.delalande.prompter.recording.CameraRecorder
@@ -62,6 +63,7 @@ private fun formatRecordingTime(millis: Long): String {
 @Composable
 fun TeleprompterScreen(
     viewModel: TeleprompterViewModel,
+    debugRepository: DebugRepository,
     defaultCameraMode: CameraMode,
     textDisplayStyle: TextDisplayStyle,
     onBack: () -> Unit,
@@ -112,6 +114,15 @@ fun TeleprompterScreen(
         repeat(10) {
             delay(400)
             viewModel.startMonitoring()
+        }
+    }
+
+    val autoAdvance = remember { debugRepository.load().autoAdvanceWords }
+    LaunchedEffect(autoAdvance) {
+        if (!autoAdvance) return@LaunchedEffect
+        while (viewModel.currentWordIndex < viewModel.script.wordCount()) {
+            delay(150)
+            viewModel.seekTo(viewModel.currentWordIndex + 1)
         }
     }
 
@@ -187,6 +198,25 @@ fun TeleprompterScreen(
                 .padding(start = 8.dp, top = 8.dp)
         ) {
             Text("\u2715", fontSize = 24.sp, color = Color.White)
+        }
+
+        if (autoAdvance) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .zIndex(4f)
+                    .padding(bottom = 128.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF8B7500).copy(alpha = 0.7f))
+                    .padding(horizontal = 12.dp, vertical = 5.dp)
+            ) {
+                Text(
+                    text = "DEBUG AUTO-SCROLL",
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
         }
 
         if (viewModel.isRecording) {

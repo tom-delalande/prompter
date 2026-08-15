@@ -3,6 +3,7 @@ package co.delalande.prompter.viewmodel
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import co.delalande.prompter.log.Log
 import co.delalande.prompter.model.Script
 import co.delalande.prompter.recording.CameraRecorder
 import co.delalande.prompter.recording.RecordingListener
@@ -41,6 +42,7 @@ class TeleprompterViewModel(
         }
 
         override fun onError(error: String) {
+            Log.e(TAG) { "Speech error: $error" }
             recordingError = error
         }
 
@@ -72,12 +74,14 @@ class TeleprompterViewModel(
         }
 
         override fun onError(error: String) {
+            Log.e(TAG) { "Recording error: $error" }
             recordingError = error
             isProcessing = false
         }
     }
 
     init {
+        Log.i(TAG) { "Teleprompter started for script '${script.title}' (${script.wordCount()} words)" }
         speechRecognizer.setListener(speechListener)
         cameraRecorder.setListener(recordingListener)
     }
@@ -90,6 +94,7 @@ class TeleprompterViewModel(
         isPlaying = true
         pendingWords.clear()
         lastPartialTokens = emptyList()
+        Log.i(TAG) { "startPlayback (word $currentWordIndex of ${script.wordCount()})" }
         speechRecognizer.startListening()
     }
 
@@ -107,12 +112,14 @@ class TeleprompterViewModel(
         currentVideoPath = "teleprompter_${recordingCounter}_$opCounter.mp4"
         recordingError = null
         lastRecordedFile = null
+        Log.i(TAG) { "startRecording -> $currentVideoPath" }
         cameraRecorder.startRecording(currentVideoPath)
     }
 
     private fun stopRecording() {
         isProcessing = true
         isPlaying = false
+        Log.i(TAG) { "stopRecording (word $currentWordIndex of ${script.wordCount()})" }
         cameraRecorder.stopRecording()
     }
 
@@ -153,6 +160,7 @@ class TeleprompterViewModel(
             )
             if (result.isMatching && result.newWordIndex > currentWordIndex) {
                 currentWordIndex = minOf(result.newWordIndex, script.wordCount())
+                Log.v(TAG) { "Speech advanced to word $currentWordIndex" }
                 updateScrollOffset()
                 val consumed = result.consumedWords.coerceAtMost(subsetOfPendingWords.size)
                 repeat(i) { pendingWords.removeFirst() }
@@ -169,13 +177,19 @@ class TeleprompterViewModel(
 
     fun seekTo(index: Int) {
         currentWordIndex = index.coerceIn(0, script.wordCount())
+        Log.v(TAG) { "seekTo $currentWordIndex" }
         updateScrollOffset()
         pendingWords.clear()
         lastPartialTokens = emptyList()
     }
 
     fun destroy() {
+        Log.i(TAG) { "destroy (word $currentWordIndex of ${script.wordCount()})" }
         speechRecognizer.destroy()
         cameraRecorder.destroy()
+    }
+
+    companion object {
+        private const val TAG = "TeleprompterVM"
     }
 }

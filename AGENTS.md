@@ -149,23 +149,35 @@ teleprompter/
 
 ## Debugging on the Physical Android Device (preferred workflow)
 
-Debug against the attached physical device (`adb devices`, serial `53181JEBF20037`) rather than reasoning in the abstract. `println(...)` in Kotlin lands in logcat as `System.out` — this is the primary signal channel.
+Debug against the attached physical device (`adb devices`, serial `53181JEBF20037`) rather than reasoning in the abstract.
 
-### The self-driving harness pattern (do this by default for UI/runtime bugs)
+### Logging infrastructure
+
+Use `co.delalande.prompter.log.Log` (a Napier-backed facade) in **commonMain and all source sets** — never raw `println` or `android.util.Log`:
+- `Log.d/i` (lazy `{ "..." }` lambdas) for verbose state, `Log.w/e` for warnings/errors.
+- `Log.verboseEnabled` (persisted via `DebugRepository` → `files/debug.json`) gates d/i/v at runtime in debug builds.
+- Release builds strip all d/i/v call sites via R8 `assumenosideeffects` in `androidApp/proguard-rules.pro`; w/e remain.
+- In logcat, tags appear as `MLKitSpeech`, `App`, `TeleprompterVM`, `Settings`, `DebugRepo`. Grep logcat with the relevant tag.
+
+### The built-in debug panel (use this instead of injecting temporary code)
+
+A debug panel lives at the bottom of **Settings** and is visible only on debug builds (`BuildConfig.DEBUG`). It exposes:
+- **Verbose logging** toggle (flips `Log.verboseEnabled`, persisted).
+- **Auto-advance words** toggle — simulates speech without a mic by auto-scrolling (`seekTo` every 150ms) in the teleprompter; shows a "DEBUG AUTO-SCROLL" pill.
+- **Inject 1000+ word test script** (creates `id="debug-large"` in `scripts.json`) and **Remove debug scripts**.
+
+So the old "add a `LaunchedEffect` to App.kt/TeleprompterScreen.kt" harness is now a Settings toggle — no source edits needed. Key state transitions are already logged from `TeleprompterViewModel` (`startPlayback`, `startRecording`, `seekTo`, speech advances).
 
 When you need to observe app behavior but can't tap the screen (locked device, or you can't see the screen):
 
-1. Add temporary debug-only code in `commonMain` that makes the app **drive itself**:
-   - In `App.kt`: a `LaunchedEffect(Unit)` that loads/creates a large script (e.g. `id="debug-large"`, 1000+ words) and auto-navigates to `Screen.Teleprompter`.
-   - In `TeleprompterScreen.kt`: a `LaunchedEffect(Unit)` that auto-advances state, e.g. `while(true) { delay(120); viewModel.seekTo(viewModel.currentWordIndex + 1) }` to simulate speech without a mic.
-   - Log key state transitions with `println("MYTAG: idx=… start=… target=… anim=…")`.
+1. Ensure `debug.json` has `{"autoAdvanceWords": true}` and `scripts.json` contains `debug-large`, either via the debug panel (if the screen is unlocked) or directly via `run-as` file writes.
 2. Build + install + launch, then read logs:
    ```bash
    ./gradlew :androidApp:assembleDebug
    adb install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
    adb logcat -c
    adb shell am force-stop co.delalande.prompter; adb shell am start -n co.delalande.prompter/.MainActivity
-   sleep 10 && adb logcat -d 2>/dev/null | grep "MYTAG"
+   sleep 10 && adb logcat -d 2>/dev/null | grep "TeleprompterVM"
    ```
 3. `adb shell pidof co.delalande.prompter` confirms the app is running.
 
@@ -178,10 +190,9 @@ When you need to observe app behavior but can't tap the screen (locked device, o
 
 ### Cleanup after device debugging (mandatory)
 
-Always remove the temporary harness and fix device data before handing back:
-- Delete the debug `LaunchedEffect`s, `println` logging, and any auto-navigate code.
-- Remove injected scripts (`debug-large`) from the device's `files/scripts.json` via `run-as` — never `pm clear` (wipes the user's real scripts).
-- Rebuild + reinstall the clean APK, re-run both compilation targets, and verify no debug tags remain: `grep -rn "WINDOWDBG\|TEMP DEBUG" composeApp/`.
+Restore device data before handing back:
+- Remove injected scripts (`debug-large`) from the device's `files/scripts.json` via `run-as` — never `pm clear` (wipes the user's real scripts). You can also use the debug panel's **Remove debug scripts** button.
+- If you injected anything manually (not via the debug panel), delete it before handing back. No source cleanup needed for the built-in debug panel — it's permanent and stripped from release builds.
 
 ### Reading the screen without image input
 

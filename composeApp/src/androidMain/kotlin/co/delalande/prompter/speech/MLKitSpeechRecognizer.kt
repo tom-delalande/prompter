@@ -5,7 +5,6 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.ParcelFileDescriptor
-import android.util.Log
 import com.google.mlkit.genai.common.DownloadStatus
 import com.google.mlkit.genai.common.FeatureStatus
 import com.google.mlkit.genai.common.audio.AudioSource
@@ -14,6 +13,7 @@ import com.google.mlkit.genai.speechrecognition.SpeechRecognizerOptions
 import com.google.mlkit.genai.speechrecognition.SpeechRecognizerRequest
 import com.google.mlkit.genai.speechrecognition.SpeechRecognizerResponse
 import com.google.mlkit.genai.speechrecognition.SpeechRecognizer as MLKitInternalRecognizer
+import co.delalande.prompter.log.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -53,7 +53,7 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
     override fun startListening() {
         if (isActive) return
         isActive = true
-        Log.d(TAG, "--- startListening ---")
+        Log.d(TAG) { "--- startListening ---" }
 
         val rec = createRecognizer() ?: return
         val audioSource = startAudioCapture()
@@ -67,7 +67,7 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
             try {
                 setupAndRecognize(rec, audioSource)
             } catch (e: Exception) {
-                Log.e(TAG, "Setup failed", e)
+                Log.e(TAG, throwable = e) { "Setup failed" }
                 if (isActive) {
                     listener?.onError("Setup failed: ${e.message}")
                     isActive = false
@@ -82,12 +82,12 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
                 locale = Locale.US
                 preferredMode = SpeechRecognizerOptions.Mode.MODE_BASIC
             }.build()
-            Log.d(TAG, "Creating recognizer...")
+            Log.d(TAG) { "Creating recognizer..." }
             SpeechRecognition.getClient(options).also {
-                Log.d(TAG, "Recognizer created")
+                Log.d(TAG) { "Recognizer created" }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to create recognizer", e)
+            Log.e(TAG, throwable = e) { "Failed to create recognizer" }
             listener?.onError("Recognizer init failed: ${e.message}")
             isActive = false
             null
@@ -95,22 +95,22 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
     }
 
     private suspend fun setupAndRecognize(rec: MLKitInternalRecognizer, audioSource: AudioSource) {
-        Log.d(TAG, "Checking model status...")
+        Log.d(TAG) { "Checking model status..." }
         when (rec.checkStatus()) {
             FeatureStatus.AVAILABLE -> {
-                Log.d(TAG, "Model available")
+                Log.d(TAG) { "Model available" }
                 startRecognitionFlow(rec, audioSource)
             }
             FeatureStatus.DOWNLOADABLE -> {
-                Log.d(TAG, "Downloading model...")
+                Log.d(TAG) { "Downloading model..." }
                 rec.download().collect { s ->
                     when (s) {
                         is DownloadStatus.DownloadCompleted -> {
-                            Log.d(TAG, "Download completed")
+                            Log.d(TAG) { "Download completed" }
                             if (isActive) startRecognitionFlow(rec, audioSource)
                         }
                         is DownloadStatus.DownloadFailed -> {
-                            Log.e(TAG, "Download failed: ${s.e.message}")
+                            Log.e(TAG) { "Download failed: ${s.e.message}" }
                             listener?.onError("Model download failed: ${s.e.message}")
                             isActive = false
                         }
@@ -119,7 +119,7 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
                 }
             }
             FeatureStatus.DOWNLOADING -> {
-                Log.d(TAG, "Model downloading, waiting...")
+                Log.d(TAG) { "Model downloading, waiting..." }
                 delay(3000)
                 if (!isActive) return
                 if (rec.checkStatus() == FeatureStatus.AVAILABLE) {
@@ -152,7 +152,7 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         )
 
         if (record.state != AudioRecord.STATE_INITIALIZED) {
-            Log.e(TAG, "AudioRecord init failed (state=${record.state})")
+            Log.e(TAG) { "AudioRecord init failed (state=${record.state})" }
             return null
         }
 
@@ -166,7 +166,7 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         try {
             record.startRecording()
         } catch (e: Exception) {
-            Log.e(TAG, "AudioRecord start failed", e)
+            Log.e(TAG, throwable = e) { "AudioRecord start failed" }
             try { record.release() } catch (_: Exception) {}
             try { pipe[0].close() } catch (_: Exception) {}
             try { pipe[1].close() } catch (_: Exception) {}
@@ -177,7 +177,7 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         reportExternalMic(record)
         smoothedLevel = 0f
 
-        Log.d(TAG, "AudioRecord started at ${SAMPLE_RATE}Hz")
+        Log.d(TAG) { "AudioRecord started at ${SAMPLE_RATE}Hz" }
 
         audioCaptureJob = scope.launch(Dispatchers.Default) {
             val buffer = ByteArray(bufferSize)
@@ -191,12 +191,12 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
                         reportAudioLevel(buffer, bytesRead)
                         pipeOut.write(buffer, 0, bytesRead)
                     } else if (bytesRead < 0) {
-                        Log.e(TAG, "AudioRecord read error: $bytesRead")
+                        Log.e(TAG) { "AudioRecord read error: $bytesRead" }
                         break
                     }
                 }
             } catch (e: IOException) {
-                if (isActive) Log.e(TAG, "Audio capture IO error", e)
+                if (isActive) Log.e(TAG, throwable = e) { "Audio capture IO error" }
             } finally {
                 try { pipeOut.close() } catch (_: Exception) {}
                 stopAudioCapture()
@@ -241,7 +241,7 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
             audioSource = source
         }.build()
 
-        Log.d(TAG, "Starting recognition flow...")
+        Log.d(TAG) { "Starting recognition flow..." }
         try {
             rec.startRecognition(request)
                 .flowOn(Dispatchers.Default)
@@ -249,30 +249,30 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
                     if (!isActive) return@collect
                     when (response) {
                         is SpeechRecognizerResponse.PartialTextResponse -> {
-                            Log.d(TAG, "PARTIAL: \"${response.text}\"")
+                            Log.d(TAG) { "PARTIAL: \"${response.text}\"" }
                             listener?.onPartialResult(response.text)
                         }
                         is SpeechRecognizerResponse.FinalTextResponse -> {
-                            Log.d(TAG, "FINAL: \"${response.text}\"")
+                            Log.d(TAG) { "FINAL: \"${response.text}\"" }
                             listener?.onPartialResult(response.text)
                         }
                         is SpeechRecognizerResponse.ErrorResponse -> {
-                            Log.e(TAG, "ERROR: ${response.e.message}")
+                            Log.e(TAG) { "ERROR: ${response.e.message}" }
                             if (isActive) listener?.onError(response.e.message ?: "Recognition error")
                         }
                         is SpeechRecognizerResponse.CompletedResponse -> {
-                            Log.d(TAG, "COMPLETED")
+                            Log.d(TAG) { "COMPLETED" }
                         }
                     }
                 }
         } catch (e: Exception) {
-            Log.e(TAG, "Recognition flow threw", e)
+            Log.e(TAG, throwable = e) { "Recognition flow threw" }
             if (isActive) listener?.onError(e.message ?: "Recognition error")
         }
     }
 
     override fun stopListening() {
-        Log.d(TAG, "stopListening called")
+        Log.d(TAG) { "stopListening called" }
         isActive = false
         recognitionJob?.cancel()
         recognitionJob = null
@@ -282,15 +282,15 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         scope.launch {
             try {
                 recognizer?.stopRecognition()
-                Log.d(TAG, "stopRecognition completed")
+                Log.d(TAG) { "stopRecognition completed" }
             } catch (e: Exception) {
-                Log.e(TAG, "stopRecognition threw", e)
+                Log.e(TAG, throwable = e) { "stopRecognition threw" }
             }
         }
     }
 
     override fun destroy() {
-        Log.d(TAG, "destroy called")
+        Log.d(TAG) { "destroy called" }
         stopListening()
         try { recognizer?.close() } catch (_: Exception) {}
         recognizer = null

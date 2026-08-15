@@ -20,9 +20,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.delay
 import co.delalande.prompter.billing.BillingManager
+import co.delalande.prompter.data.DebugRepository
 import co.delalande.prompter.data.PlatformStorage
 import co.delalande.prompter.data.ScriptRepository
 import co.delalande.prompter.data.SettingsRepository
+import co.delalande.prompter.log.Log
 import co.delalande.prompter.model.SaveResult
 import co.delalande.prompter.model.Script
 import co.delalande.prompter.recording.CameraRecorder
@@ -40,10 +42,12 @@ enum class Screen {
 
 private const val SAVING_DIALOG_GRACE_MS = 600L
 private const val SAVING_DIALOG_MIN_DISPLAY_MS = 1000L
+private const val TAG = "App"
 
 @Composable
 fun App(
     platformStorage: PlatformStorage,
+    isDebug: Boolean,
     speechRecognizerFactory: () -> SpeechRecognizer,
     cameraRecorderFactory: () -> CameraRecorder,
     billingManagerFactory: () -> BillingManager,
@@ -53,6 +57,7 @@ fun App(
 ) {
     val repository = remember { ScriptRepository(platformStorage) }
     val settingsRepository = remember { SettingsRepository(platformStorage) }
+    val debugRepository = remember { DebugRepository(platformStorage) }
     val billingManager = remember { billingManagerFactory() }
 
     var currentScreen by remember { mutableStateOf(Screen.ScriptList) }
@@ -62,6 +67,10 @@ fun App(
     var saveResult by remember { mutableStateOf<SaveResult?>(null) }
     var isSavingVideo by remember { mutableStateOf(false) }
     var showSavingDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(currentScreen) {
+        Log.i(TAG) { "Screen: $currentScreen" }
+    }
 
     TeleprompterTheme {
         Box {
@@ -111,6 +120,9 @@ fun App(
                 Screen.Settings -> {
                     SettingsScreen(
                         settingsRepository = settingsRepository,
+                        scriptRepository = repository,
+                        debugRepository = debugRepository,
+                        isDebug = isDebug,
                         buildInfo = buildInfo,
                         onBack = { currentScreen = Screen.ScriptList }
                     )
@@ -120,6 +132,7 @@ fun App(
                     teleprompterViewModel?.let { vm ->
                         TeleprompterScreen(
                             viewModel = vm,
+                            debugRepository = debugRepository,
                             defaultCameraMode = settingsRepository.load().defaultCameraMode,
                             textDisplayStyle = settingsRepository.load().textDisplayStyle,
                             onBack = {

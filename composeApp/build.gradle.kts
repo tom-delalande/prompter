@@ -67,6 +67,7 @@ kotlin {
                 implementation("org.jetbrains.compose.material:material-icons-core:1.7.3")
                 implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
                 implementation(libs.kotlinx.serialization.json)
+                implementation(libs.napier)
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
             }
         }

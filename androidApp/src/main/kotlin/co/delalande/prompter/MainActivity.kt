@@ -13,6 +13,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import co.delalande.prompter.billing.AndroidBillingManager
 import co.delalande.prompter.data.PlatformStorage
+import co.delalande.prompter.log.initLogging
 import co.delalande.prompter.model.SaveResult
 import co.delalande.prompter.recording.AndroidCameraRecorder
 import co.delalande.prompter.speech.MLKitSpeechRecognizer
@@ -25,10 +26,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        initLogging()
 
         setContent {
             App(
                 platformStorage = PlatformStorage(this@MainActivity),
+                isDebug = BuildConfig.DEBUG,
                 speechRecognizerFactory = { MLKitSpeechRecognizer(this@MainActivity) },
                 cameraRecorderFactory = { AndroidCameraRecorder(this@MainActivity) },
                 billingManagerFactory = {
