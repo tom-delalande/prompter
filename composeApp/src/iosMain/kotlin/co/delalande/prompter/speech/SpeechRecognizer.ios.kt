@@ -66,7 +66,9 @@ class IOSSpeechRecognizer : SpeechRecognizer {
         val session = AVAudioSession.sharedInstance()
         memScoped {
             val categoryError = alloc<ObjCObjectVar<NSError?>>()
-            if (!session.setCategory(AVAudioSessionCategoryRecord, 0uL, categoryError.ptr)) {
+            val categoryOptions =
+                AVAudioSessionCategoryOptionMixWithOthers or AVAudioSessionCategoryOptionAllowBluetooth
+            if (!session.setCategory(AVAudioSessionCategoryPlayAndRecord, categoryOptions, categoryError.ptr)) {
                 Log.e(TAG) { "Failed to set audio session category: ${categoryError.value?.localizedDescription}" }
             }
             val activeError = alloc<ObjCObjectVar<NSError?>>()

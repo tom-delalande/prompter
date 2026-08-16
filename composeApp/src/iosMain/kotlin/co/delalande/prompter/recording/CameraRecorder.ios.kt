@@ -62,8 +62,12 @@ class IOSCameraRecorder : CameraRecorder {
         delegateObj = RecordingDelegate()
 
         val audioSession = AVAudioSession.sharedInstance()
-        audioSession.setCategory(AVAudioSessionCategoryRecord, 0uL, null)
+        val categoryOptions =
+            AVAudioSessionCategoryOptionMixWithOthers or AVAudioSessionCategoryOptionAllowBluetooth
+        audioSession.setCategory(AVAudioSessionCategoryPlayAndRecord, categoryOptions, null)
         audioSession.setActive(true, null)
+
+        session.automaticallyConfiguresApplicationAudioSession = false
 
         configureCamera()
         configureAudio()
