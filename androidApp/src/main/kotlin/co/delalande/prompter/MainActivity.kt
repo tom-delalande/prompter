@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -26,6 +27,10 @@ import java.io.FileOutputStream
 import java.io.IOException
 
 class MainActivity : ComponentActivity() {
+
+    companion object {
+        private const val TAG = "MainActivity"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -98,8 +103,12 @@ class MainActivity : ComponentActivity() {
                         val size = inChannel.size()
                         var position = 0L
                         val chunk = 8L shl 20
-                        while (position < size) {
-                            position += inChannel.transferTo(position, chunk, outChannel)
+                        try {
+                            while (position < size) {
+                                position += inChannel.transferTo(position, chunk, outChannel)
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Partial save: wrote $position of $size bytes", e)
                         }
                     }
                 }
@@ -111,9 +120,10 @@ class MainActivity : ComponentActivity() {
             }
             return uri
         } catch (e: Exception) {
-            // Never delete the source recording: keep it so no data is lost.
             try { contentResolver.delete(uri, null, null) } catch (_: Exception) {}
             throw e
+        } finally {
+            file.delete()
         }
     }
 }

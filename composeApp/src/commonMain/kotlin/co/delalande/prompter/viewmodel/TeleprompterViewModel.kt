@@ -31,7 +31,6 @@ class TeleprompterViewModel(
     private val pendingWords = ArrayDeque<String>()
     private var lastPartialTokens: List<String> = emptyList()
     private val maxPendingWords = 40
-    private var recordingCounter = 0
     private var currentVideoPath = ""
 
     private val speechListener = object : SpeechListener {
@@ -107,12 +106,58 @@ class TeleprompterViewModel(
     }
 
     private fun startRecording() {
-        recordingCounter++
-        currentVideoPath = "teleprompter_${recordingCounter}_${Clock.System.now().toEpochMilliseconds()}.mp4"
+        val sanitizedTitle = script.title.replace(Regex("[^a-zA-Z0-9\\s-_]"), "")
+            .trim()
+            .replace(Regex("\\s+"), "_")
+            .ifEmpty { "teleprompter" }
+        val timestamp = formatTimestampForFileName(Clock.System.now().toEpochMilliseconds())
+        currentVideoPath = "${sanitizedTitle}_${timestamp}.mp4"
         recordingError = null
         lastRecordedFile = null
         Log.i(TAG) { "startRecording -> $currentVideoPath" }
         cameraRecorder.startRecording(currentVideoPath)
+    }
+
+    private fun formatTimestampForFileName(epochMs: Long): String {
+        val totalSeconds = epochMs / 1000
+        val seconds = (totalSeconds % 60).toInt()
+        val totalMinutes = totalSeconds / 60
+        val minutes = (totalMinutes % 60).toInt()
+        val totalHours = totalMinutes / 60
+        val hours = (totalHours % 24).toInt()
+        val totalDays = (totalHours / 24).toInt()
+
+        var year = 1970
+        var remainingDays = totalDays
+        while (remainingDays >= if (isLeapYear(year)) 366 else 365) {
+            remainingDays -= if (isLeapYear(year)) 366 else 365
+            year++
+        }
+
+        val monthDays = intArrayOf(
+            31, if (isLeapYear(year)) 29 else 28, 31, 30, 31, 30,
+            31, 31, 30, 31, 30, 31
+        )
+        var month = 1
+        for (days in monthDays) {
+            if (remainingDays < days) break
+            remainingDays -= days
+            month++
+        }
+
+        val day = remainingDays + 1
+        return "${year.pad4()}-${month.pad2()}-${day.pad2()}_${hours.pad2()}-${minutes.pad2()}-${seconds.pad2()}"
+    }
+
+    private fun isLeapYear(year: Int): Boolean =
+        (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+
+    private fun Int.pad2(): String = if (this < 10) "0$this" else "$this"
+    private fun Int.pad4(): String = when {
+        this < 10 -> "000$this"
+        this < 100 -> "00$this"
+        this < 1000 -> "0$this"
+        else -> "$this"
     }
 
     private fun stopRecording() {

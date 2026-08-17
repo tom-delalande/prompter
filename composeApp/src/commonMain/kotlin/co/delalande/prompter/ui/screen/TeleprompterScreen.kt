@@ -4,12 +4,13 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.ClickableText
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MicExternalOn
 import androidx.compose.material3.*
@@ -22,15 +23,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -43,13 +44,8 @@ import co.delalande.prompter.ui.fontFamilyFor
 import co.delalande.prompter.ui.parseHexColor
 import co.delalande.prompter.viewmodel.TeleprompterViewModel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
-import kotlin.math.abs
 import kotlin.time.TimeSource
 
-private const val WINDOW_COVER_BEFORE = 60
-private const val WINDOW_INITIAL = 300
-private const val VIEWPORT_MARGIN_MULT = 1.5f
 private val CURRENT_WORD_BACKGROUND = Color(0xFF1565C0)
 
 private fun formatRecordingTime(millis: Long): String {
@@ -72,7 +68,6 @@ fun TeleprompterScreen(
     onSaveToPhotos: (String) -> Unit,
     onSaveStateChanged: (Boolean) -> Unit = {},
 ) {
-    val scrollState = rememberScrollState()
     var isPipMode by remember { mutableStateOf(defaultCameraMode == CameraMode.PictureInPicture) }
     var showExitConfirmDialog by remember { mutableStateOf(false) }
     var recordingElapsedMillis by remember { mutableStateOf(0L) }
@@ -170,7 +165,6 @@ fun TeleprompterScreen(
 
         TeleprompterContent(
             viewModel = viewModel,
-            scrollState = scrollState,
             modifier = Modifier
                 .fillMaxSize()
                 .clickable { if (!isPipMode) isPipMode = true }
@@ -221,10 +215,9 @@ fun TeleprompterScreen(
         if (viewModel.isRecording) {
             Row(
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
+                    .align(if (isLandscape) Alignment.BottomCenter else Alignment.TopCenter)
                     .zIndex(4f)
-                    .statusBarsPadding()
-                    .padding(top = 10.dp)
+                    .then(if (isLandscape) Modifier.navigationBarsPadding().padding(bottom = 10.dp) else Modifier.statusBarsPadding().padding(top = 10.dp))
                     .clip(RoundedCornerShape(16.dp))
                     .background(Color.Black.copy(alpha = 0.55f))
                     .padding(horizontal = 12.dp, vertical = 5.dp),
@@ -352,7 +345,6 @@ private fun RecordButton(viewModel: TeleprompterViewModel) {
 @Composable
 private fun TeleprompterContent(
     viewModel: TeleprompterViewModel,
-    scrollState: androidx.compose.foundation.ScrollState,
     modifier: Modifier = Modifier,
     pipEndPadding: Dp = 0.dp,
     isLandscape: Boolean,
@@ -394,231 +386,132 @@ private fun TeleprompterContent(
             val lineHeight = (textDisplayStyle.fontSizeSp * 1.35f).sp
             val density = LocalDensity.current
             val borderWidthPx = with(density) { textDisplayStyle.borderWidthDp.dp.toPx() }
-            val verticalCenterOffset = textAreaDp / 2 - with(density) { lineHeight.toDp() } / 2
 
-            val lineHeightPx = with(density) { lineHeight.toPx() }
-            val wordY = remember(words, lineHeightPx) {
-                FloatArray(wordCount) { i -> (lineHeightPx / 8f) * i }
-            }
-            var currentWordCenterY by remember { mutableStateOf(-1f) }
-            val centerSpacerPx = with(density) { verticalCenterOffset.toPx() }
-            val vpPx = with(density) { textAreaDp.toPx() }
-
-            var windowStart by remember { mutableStateOf(0) }
-            var windowEnd by remember(wordCount) { mutableStateOf(minOf(WINDOW_INITIAL, wordCount)) }
-            var offsetBefore by remember { mutableStateOf(0f) }
-            var windowHeightPx by remember { mutableStateOf(0f) }
-            var estimatedDocHeightPx by remember { mutableStateOf(0f) }
-            var autoScrollInProgress by remember { mutableStateOf(false) }
-            var userScrolling by remember { mutableStateOf(false) }
-
-            val windowSize = windowEnd - windowStart
-
-            fun expandWindow() {
-                if (wordCount == 0) return
-                val newStart = (currentIndex - WINDOW_COVER_BEFORE).coerceIn(0, wordCount - 1)
-                offsetBefore = wordY[newStart]
-                windowStart = newStart
-                windowEnd = maxOf(windowEnd, minOf(newStart + WINDOW_INITIAL, wordCount))
-                windowEnd = maxOf(windowEnd, currentIndex + 1)
-            }
-
-            LaunchedEffect(currentIndex, wordCount) {
-                if (currentIndex !in windowStart..<windowEnd) {
-                    currentWordCenterY = -1f
-                    expandWindow()
-                }
-            }
-
-            LaunchedEffect(currentIndex, currentWordCenterY, scrollState.maxValue) {
-                if (currentIndex >= wordCount) return@LaunchedEffect
-                if (currentWordCenterY < 0f) return@LaunchedEffect
-                if (userScrolling) return@LaunchedEffect
-                val target = (centerSpacerPx + currentWordCenterY - vpPx / 2f).toInt()
-                if (abs(target - scrollState.value) <= lineHeightPx * 0.8f) return@LaunchedEffect
-                autoScrollInProgress = true
-                try {
-                    scrollState.animateScrollTo(target.coerceAtLeast(0))
-                } finally {
-                    autoScrollInProgress = false
-                }
-            }
-
-            LaunchedEffect(scrollState.maxValue, vpPx) {
-                snapshotFlow { scrollState.value to scrollState.isScrollInProgress }
-                    .collect { (scroll, inProgress) ->
-                        userScrolling = inProgress && !autoScrollInProgress
-                        val viewportBottomY = scroll + vpPx - centerSpacerPx
-                        val windowBottom = offsetBefore + windowHeightPx
-                        val marginPx = vpPx * VIEWPORT_MARGIN_MULT
-                        if (windowEnd < wordCount && windowBottom - viewportBottomY < marginPx) {
-                            currentWordCenterY = -1f
-                            expandWindow()
-                        }
-                    }
-            }
-
-            val (fillString, offsets) = buildWordString(
-                windowStart = windowStart,
-                windowEnd = windowEnd,
-                words = words,
-                lineBreakBefore = lineBreakBefore,
-                currentIndex = currentIndex,
-                textColor = textColor,
-                fontSize = fontSize
-            )
-            val strokeString = if (textDisplayStyle.borderWidthDp > 0f) {
-                buildBorderString(
-                    windowStart = windowStart,
-                    windowEnd = windowEnd,
-                    words = words,
-                    lineBreakBefore = lineBreakBefore,
-                    borderColor = borderColor,
-                    fontSize = fontSize
-                )
-            } else null
             val baseStyle = TextStyle(
                 fontSize = fontSize,
                 lineHeight = lineHeight,
                 fontFamily = fontFamily
             )
-            val onWordClick: (Int) -> Unit = { offset ->
-                val end = (offset + 1).coerceAtMost(fillString.length)
-                val annotations = fillString.getStringAnnotations("word", offset, end)
-                if (annotations.isNotEmpty()) {
-                    viewModel.seekTo(annotations.first().item.toInt())
+
+            val horizontalPadding = if (isLandscape) 56.dp else 28.dp
+            val endExtraPadding = if (isLandscape) 140.dp else 0.dp
+            val availableWidthPx = with(density) {
+                (maxWidth - horizontalPadding * 2 - endExtraPadding - pipEndPadding).toPx()
+            }
+            val fontSizePx = with(density) { fontSize.toPx() }
+            val charsPerLine = (availableWidthPx / (fontSizePx * 0.52f)).toInt().coerceIn(10, 120)
+
+            val chunkStarts = remember(words, charsPerLine) {
+                val starts = mutableListOf(0)
+                var charBudget = 0
+                for (i in words.indices) {
+                    val wordLen = words[i].length
+                    val spaceLen = if (i > 0 && !lineBreakBefore[i]) 3 else 0
+                    if (i > 0 && charBudget + spaceLen + wordLen > charsPerLine) {
+                        starts.add(i)
+                        charBudget = wordLen
+                    } else {
+                        charBudget += spaceLen + wordLen
+                    }
+                }
+                starts
+            }
+            val chunkCount = chunkStarts.size
+            val listState = rememberLazyListState()
+
+            LaunchedEffect(currentIndex, wordCount) {
+                if (wordCount == 0 || chunkStarts.isEmpty()) return@LaunchedEffect
+                val safeIndex = currentIndex.coerceIn(0, wordCount - 1)
+                val chunkIndex = chunkStarts.indexOfLast { it <= safeIndex }
+                val target = (chunkIndex - 2).coerceAtLeast(0)
+                if (target != listState.firstVisibleItemIndex) {
+                    listState.animateScrollToItem(target)
                 }
             }
 
-            Column(
+            LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .verticalScroll(scrollState)
                     .padding(
-                        start = if (isLandscape) 56.dp else 28.dp,
-                        end = (if (isLandscape) 56.dp else 28.dp) + pipEndPadding
+                        start = horizontalPadding,
+                        end = horizontalPadding + endExtraPadding + pipEndPadding
                     )
             ) {
-                ChunkedSpacer(heightPx = centerSpacerPx + offsetBefore)
+                items(chunkCount, key = { it }) { chunkIndex ->
+                    val start = chunkStarts[chunkIndex]
+                    val end = if (chunkIndex + 1 < chunkStarts.size) chunkStarts[chunkIndex + 1] else wordCount
 
-                Box {
-                    if (strokeString != null) {
-                        ClickableText(
-                            text = strokeString,
-                            modifier = Modifier.fillMaxWidth(),
-                            onClick = onWordClick,
-                            style = baseStyle.copy(
-                                drawStyle = Stroke(
-                                    width = borderWidthPx,
-                                    cap = StrokeCap.Round,
-                                    join = StrokeJoin.Round
-                                )
-                            )
-                        )
-                    }
-                    ClickableText(
-                        text = fillString,
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = onWordClick,
-                        style = baseStyle,
-                        onTextLayout = { result ->
-                            windowHeightPx = result.size.height.toFloat()
-                            for (k in 0 until windowSize) {
-                                val box = result.getBoundingBox(offsets[k])
-                                wordY[windowStart + k] = offsetBefore + box.top
+                    val annotatedString = buildAnnotatedString {
+                        for (i in start until end) {
+                            if (i > start) {
+                                if (lineBreakBefore[i]) append("\n") else append("   ")
                             }
-                            if (windowSize > 0) {
-                                val newWpl = windowSize.toFloat() / result.lineCount.coerceAtLeast(1)
-                                var prev = offsetBefore
-                                for (i in windowStart - 1 downTo 0) {
-                                    prev -= if (lineBreakBefore[i + 1]) lineHeightPx else lineHeightPx / newWpl
-                                    wordY[i] = prev
+                            pushStringAnnotation("word", i.toString())
+                            withStyle(
+                                SpanStyle(
+                                    color = if (i < currentIndex) textColor.copy(alpha = 0.45f) else textColor,
+                                    background = if (i == currentIndex) CURRENT_WORD_BACKGROUND.copy(alpha = 0.6f) else Color.Transparent,
+                                    fontSize = fontSize
+                                )
+                            ) {
+                                append(words[i])
+                            }
+                            pop()
+                        }
+                    }
+
+                    val strokeString = if (textDisplayStyle.borderWidthDp > 0f) {
+                        buildAnnotatedString {
+                            for (i in start until end) {
+                                if (i > start) {
+                                    if (lineBreakBefore[i]) append("\n") else append("   ")
                                 }
-                                prev = wordY[windowEnd - 1]
-                                for (i in windowEnd until wordCount) {
-                                    prev += if (lineBreakBefore[i]) lineHeightPx else lineHeightPx / newWpl
-                                    wordY[i] = prev
+                                withStyle(SpanStyle(color = borderColor, fontSize = fontSize)) {
+                                    append(words[i])
                                 }
-                                estimatedDocHeightPx = wordY[wordCount - 1] + lineHeightPx
-                                val rel = (currentIndex - windowStart).coerceIn(0, windowSize - 1)
-                                val cb = result.getBoundingBox(offsets[rel])
-                                currentWordCenterY = offsetBefore + cb.top + cb.height / 2f
                             }
                         }
-                    )
+                    } else null
+
+                    var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+                    Box {
+                        if (strokeString != null) {
+                            Text(
+                                text = strokeString,
+                                modifier = Modifier.fillMaxWidth(),
+                                style = baseStyle.copy(
+                                    drawStyle = Stroke(
+                                        width = borderWidthPx,
+                                        cap = StrokeCap.Round,
+                                        join = StrokeJoin.Round
+                                    )
+                                )
+                            )
+                        }
+                        Text(
+                            text = annotatedString,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .pointerInput(Unit) {
+                                    detectTapGestures { offset ->
+                                        val layout = textLayoutResult ?: return@detectTapGestures
+                                        val charOffset = layout.getOffsetForPosition(offset)
+                                        val end = (charOffset + 1).coerceAtMost(annotatedString.length)
+                                        val annotations = annotatedString.getStringAnnotations("word", charOffset, end)
+                                        if (annotations.isNotEmpty()) {
+                                            viewModel.seekTo(annotations.first().item.toInt())
+                                        }
+                                    }
+                                },
+                            onTextLayout = { textLayoutResult = it },
+                            style = baseStyle
+                        )
+                    }
                 }
-
-                ChunkedSpacer(
-                    heightPx = (estimatedDocHeightPx - (offsetBefore + windowHeightPx))
-                        .coerceAtLeast(centerSpacerPx)
-                )
             }
         }
-    }
-}
-
-private fun buildWordString(
-    windowStart: Int,
-    windowEnd: Int,
-    words: List<String>,
-    lineBreakBefore: BooleanArray,
-    currentIndex: Int,
-    textColor: Color,
-    fontSize: TextUnit,
-): Pair<AnnotatedString, IntArray> {
-    val offsets = IntArray(windowEnd - windowStart)
-    val annotated = buildAnnotatedString {
-        for (i in windowStart until windowEnd) {
-            if (i > windowStart) {
-                if (lineBreakBefore[i]) append("\n") else append("   ")
-            }
-            offsets[i - windowStart] = length
-            pushStringAnnotation("word", i.toString())
-            withStyle(
-                SpanStyle(
-                    color = if (i < currentIndex) textColor.copy(alpha = 0.45f) else textColor,
-                    background = if (i == currentIndex) CURRENT_WORD_BACKGROUND.copy(alpha = 0.6f) else Color.Transparent,
-                    fontSize = fontSize
-                )
-            ) {
-                append(words[i])
-            }
-            pop()
-        }
-    }
-    return annotated to offsets
-}
-
-private fun buildBorderString(
-    windowStart: Int,
-    windowEnd: Int,
-    words: List<String>,
-    lineBreakBefore: BooleanArray,
-    borderColor: Color,
-    fontSize: TextUnit,
-): AnnotatedString = buildAnnotatedString {
-    for (i in windowStart until windowEnd) {
-        if (i > windowStart) {
-            if (lineBreakBefore[i]) append("\n") else append("   ")
-        }
-        withStyle(SpanStyle(color = borderColor, fontSize = fontSize)) {
-            append(words[i])
-        }
-    }
-}
-
-@Composable
-private fun ChunkedSpacer(heightPx: Float) {
-    if (heightPx <= 0f) return
-    val density = LocalDensity.current
-    val chunkPx = 30000f
-    val fullChunks = (heightPx / chunkPx).toInt()
-    repeat(fullChunks) {
-        Spacer(modifier = Modifier.height(with(density) { chunkPx.toDp() }))
-    }
-    val remainder = heightPx - fullChunks * chunkPx
-    if (remainder > 0f) {
-        Spacer(modifier = Modifier.height(with(density) { remainder.toDp() }))
     }
 }
 

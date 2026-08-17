@@ -9,6 +9,7 @@ import co.delalande.prompter.recording.IOSCameraRecorder
 import co.delalande.prompter.speech.IOSSpeechRecognizer
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSBundle
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
 import platform.Photos.*
 import platform.UIKit.*
@@ -39,6 +40,10 @@ fun MainViewController(): UIViewController {
 private fun saveVideoToPhotoLibrary(filePath: String, onResult: (SaveResult) -> Unit) {
     val url = NSURL.fileURLWithPath(filePath)
 
+    fun deleteTempFile() {
+        NSFileManager.defaultManager.removeItemAtPath(filePath, error = null)
+    }
+
     fun performSave() {
         PHPhotoLibrary.sharedPhotoLibrary().performChanges(
             changeBlock = { PHAssetCreationRequest.creationRequestForAssetFromVideoAtFileURL(url) }
@@ -46,9 +51,11 @@ private fun saveVideoToPhotoLibrary(filePath: String, onResult: (SaveResult) -> 
             runOnMain {
                 if (success) {
                     Log.i(TAG) { "Saved video to Photos: $filePath" }
-                    onResult(SaveResult(uri = url.path))
+                    deleteTempFile()
+                    onResult(SaveResult(uri = filePath))
                 } else {
                     Log.e(TAG) { "Failed to save video: ${error?.localizedDescription}" }
+                    deleteTempFile()
                     onResult(SaveResult(error = error?.localizedDescription ?: "Unknown error"))
                 }
             }
