@@ -68,11 +68,12 @@ fun App(
     var isSavingVideo by remember { mutableStateOf(false) }
     var showSavingDialog by remember { mutableStateOf(false) }
 
-    val openTeleprompter: (Script) -> Unit = { script ->
+    val openTeleprompter: (Script, Int) -> Unit = { script, startWordIndex ->
         teleprompterViewModel = TeleprompterViewModel(
             script = script,
             speechRecognizer = speechRecognizerFactory(),
             cameraRecorder = cameraRecorderFactory(),
+            startWordIndex = startWordIndex,
         )
         previousScreenBeforeTeleprompter = currentScreen
         currentScreen = Screen.Teleprompter
@@ -97,7 +98,7 @@ fun App(
                             editingScriptId = script.id
                             currentScreen = Screen.ScriptEditor
                         },
-                        onPlayScript = openTeleprompter,
+                        onPlayScript = { script -> openTeleprompter(script, 0) },
                         onOpenSettings = { currentScreen = Screen.Settings }
                     )
                 }
@@ -107,7 +108,7 @@ fun App(
                         scriptId = editingScriptId,
                         repository = repository,
                         onBack = { currentScreen = Screen.ScriptList },
-                        onPlay = openTeleprompter
+                        onPlay = { script, startWordIndex -> openTeleprompter(script, startWordIndex) }
                     )
                 }
 

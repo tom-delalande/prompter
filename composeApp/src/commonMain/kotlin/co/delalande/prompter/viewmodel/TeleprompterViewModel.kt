@@ -16,6 +16,7 @@ class TeleprompterViewModel(
     val script: Script,
     private val speechRecognizer: SpeechRecognizer,
     val cameraRecorder: CameraRecorder,
+    startWordIndex: Int = 0,
 ) {
     var currentWordIndex by mutableStateOf(0)
     var isRecording by mutableStateOf(false)
@@ -80,9 +81,12 @@ class TeleprompterViewModel(
     }
 
     init {
-        Log.i(TAG) { "Teleprompter started for script '${script.title}' (${script.wordCount()} words)" }
+        Log.i(TAG) { "Teleprompter started for script '${script.title}' (${script.wordCount()} words, start=$startWordIndex)" }
         speechRecognizer.setListener(speechListener)
         cameraRecorder.setListener(recordingListener)
+        if (startWordIndex > 0) {
+            seekTo(startWordIndex)
+        }
     }
 
     fun startMonitoring() {
