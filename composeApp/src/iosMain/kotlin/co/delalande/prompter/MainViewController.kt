@@ -28,7 +28,7 @@ fun MainViewController(): UIViewController {
             isDebug = false,
             speechRecognizerFactory = { IOSSpeechRecognizer() },
             cameraRecorderFactory = { IOSCameraRecorder() },
-            billingManagerFactory = { IOSBillingManager(PlatformStorage()) },
+            billingManagerFactory = { IOSBillingManager() },
             buildInfo = buildInfo,
             onSaveToPhotos = { filePath, onResult -> saveVideoToPhotoLibrary(filePath, onResult) },
             onOpenVideo = { openInPhotos() }

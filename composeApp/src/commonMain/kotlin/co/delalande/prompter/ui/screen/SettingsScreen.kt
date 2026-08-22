@@ -62,7 +62,7 @@ fun SettingsScreen(
     var dialogMessage by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(billingManager) {
-        billingManager.connect { }
+        billingManager.connect()
         billingManager.tipPrices { prices -> tipPrices = prices }
     }
 
@@ -301,19 +301,6 @@ fun SettingsScreen(
             largePrice = tipPrices[LARGE_TIP_PRODUCT_ID],
             onBuySmall = { purchase(SMALL_TIP_PRODUCT_ID) },
             onBuyLarge = { purchase(LARGE_TIP_PRODUCT_ID) },
-            onRestore = {
-                isPurchasing = true
-                dialogMessage = null
-                billingManager.restorePurchases { success ->
-                    isPurchasing = false
-                    if (success) {
-                        showTipDialog = false
-                        dialogMessage = null
-                    } else {
-                        dialogMessage = "No previous purchase was found on this device."
-                    }
-                }
-            },
             onCancel = {
                 if (!isPurchasing) {
                     showTipDialog = false
@@ -332,7 +319,6 @@ private fun TipDialog(
     largePrice: String?,
     onBuySmall: () -> Unit,
     onBuyLarge: () -> Unit,
-    onRestore: () -> Unit,
     onCancel: () -> Unit
 ) {
     Dialog(onDismissRequest = onCancel) {
@@ -375,14 +361,6 @@ private fun TipDialog(
                             textAlign = TextAlign.Center
                         )
                     }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = onRestore,
-                    enabled = !isPurchasing,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Restore Purchase")
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 TextButton(

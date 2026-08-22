@@ -1,9 +1,8 @@
 package co.delalande.prompter.billing
 
-import co.delalande.prompter.data.PlatformStorage
+import platform.Foundation.NSError
 import platform.Foundation.NSNumberFormatter
 import platform.Foundation.NSNumberFormatterCurrencyStyle
-import platform.Foundation.NSError
 import platform.StoreKit.SKPayment
 import platform.StoreKit.SKPaymentQueue
 import platform.StoreKit.SKPaymentTransaction
@@ -17,42 +16,18 @@ import platform.StoreKit.SKRequest
 import platform.StoreKit.SKRequestDelegateProtocol
 import platform.darwin.NSObject
 
-class IOSBillingManager(
-    private val storage: PlatformStorage
-) : BillingManager {
+class IOSBillingManager() : BillingManager {
 
-    private var premium = loadPremium(storage)
-    private var onPremiumChanged: ((Boolean) -> Unit)? = null
     private var purchaseCallback: ((Boolean) -> Unit)? = null
-    private var restoreCallback: ((Boolean) -> Unit)? = null
     private var productsRequest: SKProductsRequest? = null
     private var productsRequestDelegate: ProductsRequestDelegate? = null
     private var transactionObserver: TransactionObserver? = null
 
-    override fun connect(onPremiumChanged: (Boolean) -> Unit) {
-        this.onPremiumChanged = onPremiumChanged
+    override fun connect() {
         if (transactionObserver == null) {
-            val observer = TransactionObserver(
-                onTransaction = ::handleTransaction,
-                onRestoreFinished = {
-                    restoreCallback?.invoke(premium)
-                    restoreCallback = null
-                },
-                onRestoreFailed = {
-                    restoreCallback?.invoke(false)
-                    restoreCallback = null
-                }
-            )
+            val observer = TransactionObserver(onTransaction = ::handleTransaction)
             transactionObserver = observer
             SKPaymentQueue.defaultQueue().addTransactionObserver(observer)
-        }
-        val existing = SKPaymentQueue.defaultQueue().transactions
-            .firstOrNull { isPremiumTransaction(it as SKPaymentTransaction) }
-        if (existing != null) {
-            setPremium(true)
-            onPremiumChanged(true)
-        } else {
-            onPremiumChanged(premium)
         }
     }
 
@@ -79,13 +54,6 @@ class IOSBillingManager(
         productsRequest = request
         request.start()
     }
-
-    override fun restorePurchases(onResult: (Boolean) -> Unit) {
-        restoreCallback = onResult
-        SKPaymentQueue.defaultQueue().restoreCompletedTransactions()
-    }
-
-    override fun isPremium(): Boolean = premium
 
     override fun tipPrices(onPrices: (Map<String, String>) -> Unit) {
         productsRequestDelegate = ProductsRequestDelegate(
@@ -118,62 +86,30 @@ class IOSBillingManager(
     private fun handleTransaction(transaction: SKPaymentTransaction) {
         when (transaction.transactionState) {
             SKPaymentTransactionState.SKPaymentTransactionStatePurchased -> {
-                if (isPremiumTransaction(transaction)) {
-                    setPremium(true)
-                }
-                purchaseCallback?.invoke(isPremiumTransaction(transaction))
+                purchaseCallback?.invoke(
+                    transaction.payment.productIdentifier in TIP_PRODUCT_IDS
+                )
                 purchaseCallback = null
-                SKPaymentQueue.defaultQueue().finishTransaction(transaction)
-            }
-            SKPaymentTransactionState.SKPaymentTransactionStateRestored -> {
-                if (isPremiumTransaction(transaction)) {
-                    setPremium(true)
-                    restoreCallback?.invoke(true)
-                    restoreCallback = null
-                }
                 SKPaymentQueue.defaultQueue().finishTransaction(transaction)
             }
             SKPaymentTransactionState.SKPaymentTransactionStateFailed -> {
                 purchaseCallback?.invoke(false)
                 purchaseCallback = null
-                restoreCallback?.invoke(false)
-                restoreCallback = null
                 SKPaymentQueue.defaultQueue().finishTransaction(transaction)
             }
             else -> Unit
         }
     }
-
-    private fun isPremiumTransaction(transaction: SKPaymentTransaction): Boolean =
-        transaction.payment.productIdentifier in TIP_PRODUCT_IDS
-
-    private fun setPremium(value: Boolean) {
-        premium = value
-        savePremium(storage, value)
-    }
 }
 
 private class TransactionObserver(
-    private val onTransaction: (SKPaymentTransaction) -> Unit,
-    private val onRestoreFinished: () -> Unit,
-    private val onRestoreFailed: () -> Unit
+    private val onTransaction: (SKPaymentTransaction) -> Unit
 ) : NSObject(), SKPaymentTransactionObserverProtocol {
 
     override fun paymentQueue(queue: SKPaymentQueue, updatedTransactions: List<*>) {
         updatedTransactions.forEach { transaction ->
             onTransaction(transaction as SKPaymentTransaction)
         }
-    }
-
-    override fun paymentQueueRestoreCompletedTransactionsFinished(queue: SKPaymentQueue) {
-        onRestoreFinished()
-    }
-
-    override fun paymentQueue(
-        queue: SKPaymentQueue,
-        restoreCompletedTransactionsFailedWithError: NSError
-    ) {
-        onRestoreFailed()
     }
 }
 

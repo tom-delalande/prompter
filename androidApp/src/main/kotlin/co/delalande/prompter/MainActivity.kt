@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
                 speechRecognizerFactory = { MLKitSpeechRecognizer(this@MainActivity) },
                 cameraRecorderFactory = { AndroidCameraRecorder(this@MainActivity) },
                 billingManagerFactory = {
-                    AndroidBillingManager(this@MainActivity, PlatformStorage(this@MainActivity))
+                    AndroidBillingManager(this@MainActivity)
                 },
                 buildInfo = "v${BuildConfig.VERSION_NAME} · ${BuildInfo.GIT_COMMIT}",
                 onSaveToPhotos = { filePath, onDone ->

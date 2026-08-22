@@ -5,13 +5,13 @@ import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
 import com.android.billingclient.api.BillingFlowParams
 import com.android.billingclient.api.BillingResult
+import com.android.billingclient.api.ConsumeParams
 import com.android.billingclient.api.PendingPurchasesParams
 import com.android.billingclient.api.ProductDetails
 import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
-import co.delalande.prompter.data.PlatformStorage
 import co.delalande.prompter.log.Log
 
 private const val TAG = "Billing"
@@ -30,40 +30,37 @@ private fun resultCodeName(code: Int): String = when (code) {
 }
 
 class AndroidBillingManager(
-    private val activity: Activity,
-    private val storage: PlatformStorage
+    private val activity: Activity
 ) : BillingManager {
 
-    private var purchased = loadPremium(storage)
     private var client: BillingClient? = null
     private var connecting = false
-    private var pendingAfterConnect: (() -> Unit)? = null
-    private var onPremiumChanged: ((Boolean) -> Unit)? = null
+    private val pendingAfterConnect = mutableListOf<() -> Unit>()
     private var purchaseCallback: ((Boolean) -> Unit)? = null
-    private var restoreCallback: ((Boolean) -> Unit)? = null
 
     private val purchasesUpdatedListener = PurchasesUpdatedListener { result, purchases ->
         Log.i(TAG) { "onPurchasesUpdated: ${resultCodeName(result.responseCode)} debug=${result.debugMessage} purchases=${purchases?.map { it.products to it.purchaseState }}" }
-        val success = result.responseCode == BillingClient.BillingResponseCode.OK && hasPremium(purchases)
-        if (success) setPremium(true)
+        val success = result.responseCode == BillingClient.BillingResponseCode.OK &&
+            purchases?.any { it.purchaseState == Purchase.PurchaseState.PURCHASED } == true
+        if (success) {
+            consumeAll(purchases)
+        }
         purchaseCallback?.invoke(success)
         purchaseCallback = null
     }
 
-    override fun connect(onPremiumChanged: (Boolean) -> Unit) {
-        this.onPremiumChanged = onPremiumChanged
-        val billingClient = BillingClient.newBuilder(activity.applicationContext)
-            .setListener(purchasesUpdatedListener)
-            .enablePendingPurchases(
-                PendingPurchasesParams.newBuilder().enableOneTimeProducts().build()
-            )
-            .enableAutoServiceReconnection()
-            .build()
-        client = billingClient
+    override fun connect() {
+        if (client == null) {
+            client = BillingClient.newBuilder(activity.applicationContext)
+                .setListener(purchasesUpdatedListener)
+                .enablePendingPurchases(
+                    PendingPurchasesParams.newBuilder().enableOneTimeProducts().build()
+                )
+                .enableAutoServiceReconnection()
+                .build()
+        }
         ensureConnected {
-            queryPremium { premium ->
-                onPremiumChanged(premium)
-            }
+            consumeOwnedTips { }
         }
     }
 
@@ -107,18 +104,6 @@ class AndroidBillingManager(
             }
         }
     }
-
-    override fun restorePurchases(onResult: (Boolean) -> Unit) {
-        restoreCallback = onResult
-        ensureConnected {
-            queryPremium { premium ->
-                restoreCallback?.invoke(premium)
-                restoreCallback = null
-            }
-        }
-    }
-
-    override fun isPremium(): Boolean = purchased
 
     override fun tipPrices(onPrices: (Map<String, String>) -> Unit) {
         ensureConnected {
@@ -164,25 +149,22 @@ class AndroidBillingManager(
             action()
             return
         }
+        pendingAfterConnect += action
         if (connecting) {
-            pendingAfterConnect = action
             return
         }
         connecting = true
-        pendingAfterConnect = action
         billingClient.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(billingResult: BillingResult) {
                 connecting = false
                 Log.i(TAG) { "onBillingSetupFinished: ${resultCodeName(billingResult.responseCode)} debug=${billingResult.debugMessage}" }
+                val actions = pendingAfterConnect.toList()
+                pendingAfterConnect.clear()
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                    pendingAfterConnect?.invoke()
+                    actions.forEach { it() }
                 } else {
-                    pendingAfterConnect = null
                     purchaseCallback?.invoke(false)
                     purchaseCallback = null
-                    restoreCallback?.invoke(false)
-                    restoreCallback = null
-                    onPremiumChanged?.invoke(purchased)
                 }
             }
 
@@ -192,29 +174,36 @@ class AndroidBillingManager(
         })
     }
 
-    private fun queryPremium(callback: (Boolean) -> Unit) {
-        val billingClient = client ?: return callback(purchased)
+    /** Consumes any owned tip purchases so they can be bought again. */
+    private fun consumeOwnedTips(onDone: (found: Boolean) -> Unit) {
+        val billingClient = client ?: return onDone(false)
         val params = QueryPurchasesParams.newBuilder()
             .setProductType(BillingClient.ProductType.INAPP)
             .build()
         billingClient.queryPurchasesAsync(params) { billingResult, purchases ->
             Log.i(TAG) { "queryPurchasesAsync: ${resultCodeName(billingResult.responseCode)} debug=${billingResult.debugMessage} purchases=${purchases.map { it.products to it.purchaseState }}" }
-            val premium = hasPremium(purchases)
-            if (premium != purchased) {
-                setPremium(premium)
+            val ownedTips = purchases.filter { purchase ->
+                purchase.purchaseState == Purchase.PurchaseState.PURCHASED &&
+                    purchase.products.any { it in TIP_PRODUCT_IDS }
             }
-            callback(premium)
+            consumeAll(ownedTips)
+            onDone(ownedTips.isNotEmpty())
         }
     }
 
-    private fun setPremium(premium: Boolean) {
-        purchased = premium
-        savePremium(storage, premium)
+    private fun consumeAll(purchases: List<Purchase>?) {
+        val billingClient = client ?: return
+        purchases?.forEach { purchase ->
+            val consumeParams = ConsumeParams.newBuilder()
+                .setPurchaseToken(purchase.purchaseToken)
+                .build()
+            billingClient.consumeAsync(consumeParams) { billingResult, purchaseToken ->
+                if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
+                    Log.i(TAG) { "consumed: $purchaseToken" }
+                } else {
+                    Log.w(TAG) { "consume failed(${resultCodeName(billingResult.responseCode)}): ${billingResult.debugMessage}" }
+                }
+            }
+        }
     }
-
-    private fun hasPremium(purchases: List<Purchase>?): Boolean =
-        purchases?.any {
-            it.products.any { productId -> productId in TIP_PRODUCT_IDS } &&
-                it.purchaseState == Purchase.PurchaseState.PURCHASED
-        } == true
 }
