@@ -89,7 +89,6 @@ fun App(
                 Screen.ScriptList -> {
                     ScriptListScreen(
                         repository = repository,
-                        billingManager = billingManager,
                         onNewScript = {
                             editingScriptId = null
                             currentScreen = Screen.ScriptEditor
@@ -117,6 +116,7 @@ fun App(
                         settingsRepository = settingsRepository,
                         scriptRepository = repository,
                         debugRepository = debugRepository,
+                        billingManager = billingManager,
                         isDebug = isDebug,
                         buildInfo = buildInfo,
                         onBack = { currentScreen = Screen.ScriptList }

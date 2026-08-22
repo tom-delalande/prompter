@@ -7,6 +7,9 @@ interface BillingManager {
     fun purchase(productId: String, onResult: (Boolean) -> Unit)
     fun restorePurchases(onResult: (Boolean) -> Unit)
     fun isPremium(): Boolean
+
+    /** Fetches store-formatted prices for the tip products; empty map if unavailable. */
+    fun tipPrices(onPrices: (Map<String, String>) -> Unit)
 }
 
 const val SMALL_TIP_PRODUCT_ID = "co.delalande.prompter.smalltip"

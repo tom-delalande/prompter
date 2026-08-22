@@ -17,7 +17,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import co.delalande.prompter.billing.BillingManager
+import co.delalande.prompter.billing.LARGE_TIP_PRODUCT_ID
+import co.delalande.prompter.billing.SMALL_TIP_PRODUCT_ID
 import co.delalande.prompter.data.DebugRepository
 import co.delalande.prompter.data.ScriptRepository
 import co.delalande.prompter.data.SettingsRepository
@@ -44,12 +49,22 @@ fun SettingsScreen(
     settingsRepository: SettingsRepository,
     scriptRepository: ScriptRepository,
     debugRepository: DebugRepository,
+    billingManager: BillingManager,
     isDebug: Boolean,
     buildInfo: String,
     onBack: () -> Unit
 ) {
     val initial = remember { settingsRepository.load() }
     var settings by remember { mutableStateOf(initial) }
+    var tipPrices by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var showTipDialog by remember { mutableStateOf(false) }
+    var isPurchasing by remember { mutableStateOf(false) }
+    var dialogMessage by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(billingManager) {
+        billingManager.connect { }
+        billingManager.tipPrices { prices -> tipPrices = prices }
+    }
 
     Scaffold(
         topBar = {
@@ -79,6 +94,38 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        dialogMessage = null
+                        showTipDialog = true
+                    },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Enjoying Prompter?",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Tip to support app development",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
             Text(
                 text = "Default Camera Mode",
                 style = MaterialTheme.typography.titleMedium
@@ -231,6 +278,131 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+
+    if (showTipDialog) {
+        val purchase: (String) -> Unit = { productId ->
+            isPurchasing = true
+            dialogMessage = null
+            billingManager.purchase(productId) { success ->
+                isPurchasing = false
+                if (success) {
+                    showTipDialog = false
+                } else {
+                    dialogMessage = "Purchase could not be completed. Please try again."
+                }
+            }
+        }
+        TipDialog(
+            isPurchasing = isPurchasing,
+            message = dialogMessage,
+            smallPrice = tipPrices[SMALL_TIP_PRODUCT_ID],
+            largePrice = tipPrices[LARGE_TIP_PRODUCT_ID],
+            onBuySmall = { purchase(SMALL_TIP_PRODUCT_ID) },
+            onBuyLarge = { purchase(LARGE_TIP_PRODUCT_ID) },
+            onRestore = {
+                isPurchasing = true
+                dialogMessage = null
+                billingManager.restorePurchases { success ->
+                    isPurchasing = false
+                    if (success) {
+                        showTipDialog = false
+                        dialogMessage = null
+                    } else {
+                        dialogMessage = "No previous purchase was found on this device."
+                    }
+                }
+            },
+            onCancel = {
+                if (!isPurchasing) {
+                    showTipDialog = false
+                    dialogMessage = null
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun TipDialog(
+    isPurchasing: Boolean,
+    message: String?,
+    smallPrice: String?,
+    largePrice: String?,
+    onBuySmall: () -> Unit,
+    onBuyLarge: () -> Unit,
+    onRestore: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Dialog(onDismissRequest = onCancel) {
+        Card(shape = MaterialTheme.shapes.extraLarge) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                Text(
+                    text = "Thank you!",
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Tipping doesn't unlock any new features, but it helps support app development."
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onBuySmall,
+                        enabled = !isPurchasing,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = smallPrice ?: "Small Tip",
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    Button(
+                        onClick = onBuyLarge,
+                        enabled = !isPurchasing,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = largePrice ?: "Large Tip",
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = onRestore,
+                    enabled = !isPurchasing,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Restore Purchase")
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = onCancel,
+                    enabled = !isPurchasing,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cancel")
+                }
+                if (message != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
     }
 }
