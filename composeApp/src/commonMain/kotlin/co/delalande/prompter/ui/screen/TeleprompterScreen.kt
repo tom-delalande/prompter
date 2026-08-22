@@ -399,7 +399,13 @@ private fun TeleprompterContent(
                 (maxWidth - horizontalPadding * 2 - endExtraPadding - pipEndPadding).toPx()
             }
             val fontSizePx = with(density) { fontSize.toPx() }
-            val charsPerLine = (availableWidthPx / (fontSizePx * 0.52f)).toInt().coerceIn(10, 120)
+            val charWidthFactor = when (textDisplayStyle.fontFamily) {
+                "Monospace" -> 0.60f
+                "Serif" -> 0.46f
+                "Cursive" -> 0.50f
+                else -> 0.43f
+            }
+            val charsPerLine = (availableWidthPx / (fontSizePx * charWidthFactor)).toInt().coerceIn(10, 160)
 
             val chunkStarts = remember(words, charsPerLine) {
                 val starts = mutableListOf(0)
@@ -408,8 +414,13 @@ private fun TeleprompterContent(
                     val wordLen = words[i].length
                     val spaceLen = if (i > 0 && !lineBreakBefore[i]) 3 else 0
                     if (i > 0 && charBudget + spaceLen + wordLen > charsPerLine) {
-                        starts.add(i)
-                        charBudget = wordLen
+                        val lineFullness = charBudget.toFloat() / charsPerLine
+                        if (lineFullness >= 0.45f) {
+                            starts.add(i)
+                            charBudget = wordLen
+                        } else {
+                            charBudget += spaceLen + wordLen
+                        }
                     } else {
                         charBudget += spaceLen + wordLen
                     }
