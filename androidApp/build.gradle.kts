@@ -20,8 +20,8 @@ android {
         applicationId = "co.delalande.prompter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "4"
+        versionCode = 6
+        versionName = "6"
     }
 
     compileOptions {
