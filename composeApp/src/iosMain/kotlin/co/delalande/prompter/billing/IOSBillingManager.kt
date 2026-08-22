@@ -1,6 +1,8 @@
 package co.delalande.prompter.billing
 
 import co.delalande.prompter.data.PlatformStorage
+import platform.Foundation.NSNumberFormatter
+import platform.Foundation.NSNumberFormatterCurrencyStyle
 import platform.Foundation.NSError
 import platform.StoreKit.SKPayment
 import platform.StoreKit.SKPaymentQueue
@@ -84,6 +86,34 @@ class IOSBillingManager(
     }
 
     override fun isPremium(): Boolean = premium
+
+    override fun tipPrices(onPrices: (Map<String, String>) -> Unit) {
+        productsRequestDelegate = ProductsRequestDelegate(
+            onResponse = { products ->
+                val formatter = NSNumberFormatter().apply {
+                    numberStyle = NSNumberFormatterCurrencyStyle
+                }
+                onPrices(
+                    products.mapNotNull { product ->
+                        val productId = product.productIdentifier
+                        if (productId in TIP_PRODUCT_IDS) {
+                            formatter.locale = product.priceLocale
+                            formatter.stringFromNumber(product.price)?.let { productId to it }
+                        } else {
+                            null
+                        }
+                    }.toMap()
+                )
+                productsRequestDelegate = null
+                productsRequest = null
+            },
+            onError = { onPrices(emptyMap()) }
+        )
+        val request = SKProductsRequest(TIP_PRODUCT_IDS)
+        request.delegate = productsRequestDelegate!!
+        productsRequest = request
+        request.start()
+    }
 
     private fun handleTransaction(transaction: SKPaymentTransaction) {
         when (transaction.transactionState) {
