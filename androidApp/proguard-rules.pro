@@ -1,5 +1,15 @@
 -keep class co.delalande.prompter.** { *; }
 
+# ML Kit GenAI speech recognition is wired at runtime through the
+# firebase-components registry (classes referenced by name from merged
+# manifest meta-data and static Component fields). R8 breaks that wiring,
+# which makes SpeechRecognition.getClient() fail with a bare NPE
+# ("Recognizer init failed: null") only in minified builds.
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.firebase.components.** { *; }
+-keep class com.google.android.gms.internal.mlkit_genai_common.** { *; }
+-keep class com.google.android.gms.internal.mlkit_genai_speech.** { *; }
+
 -keepclassmembers class * {
     @android.webkit.JavascriptInterface <methods>;
 }
