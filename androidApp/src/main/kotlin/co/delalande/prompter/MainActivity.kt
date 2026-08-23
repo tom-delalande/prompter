@@ -15,6 +15,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import co.delalande.prompter.billing.AndroidBillingManager
 import co.delalande.prompter.data.PlatformStorage
+import co.delalande.prompter.feedback.FEEDBACK_EMAIL_ADDRESS
 import co.delalande.prompter.log.initLogging
 import co.delalande.prompter.model.SaveResult
 import co.delalande.prompter.recording.AndroidCameraRecorder
@@ -59,7 +60,8 @@ class MainActivity : ComponentActivity() {
                         onDone(result)
                     }
                 },
-                onOpenVideo = { uriString -> openVideo(uriString) }
+                onOpenVideo = { uriString -> openVideo(uriString) },
+                onComposeEmail = { subject -> composeEmail(subject) }
             )
         }
     }
@@ -73,6 +75,19 @@ class MainActivity : ComponentActivity() {
             startActivity(intent)
         } catch (e: Exception) {
             Toast.makeText(this, "Could not open video", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun composeEmail(subject: String) {
+        try {
+            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                data = Uri.parse("mailto:")
+                putExtra(Intent.EXTRA_EMAIL, arrayOf(FEEDBACK_EMAIL_ADDRESS))
+                putExtra(Intent.EXTRA_SUBJECT, subject)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not open email app", Toast.LENGTH_SHORT).show()
         }
     }
 

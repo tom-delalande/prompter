@@ -26,6 +26,7 @@ import co.delalande.prompter.billing.SMALL_TIP_PRODUCT_ID
 import co.delalande.prompter.data.DebugRepository
 import co.delalande.prompter.data.ScriptRepository
 import co.delalande.prompter.data.SettingsRepository
+import co.delalande.prompter.feedback.FeedbackCategory
 import co.delalande.prompter.log.Log
 import co.delalande.prompter.model.CameraMode
 import co.delalande.prompter.model.Script
@@ -52,12 +53,14 @@ fun SettingsScreen(
     billingManager: BillingManager,
     isDebug: Boolean,
     buildInfo: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onComposeEmail: (String) -> Unit
 ) {
     val initial = remember { settingsRepository.load() }
     var settings by remember { mutableStateOf(initial) }
     var tipPrices by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var showTipDialog by remember { mutableStateOf(false) }
+    var showFeedbackDialog by remember { mutableStateOf(false) }
     var isPurchasing by remember { mutableStateOf(false) }
     var dialogMessage by remember { mutableStateOf<String?>(null) }
 
@@ -262,6 +265,36 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showFeedbackDialog = true },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Send Feedback",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Report a bug, request a feature, or share your thoughts",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             Text(
                 text = buildInfo,
                 style = MaterialTheme.typography.bodySmall,
@@ -308,6 +341,52 @@ fun SettingsScreen(
                 }
             }
         )
+    }
+    if (showFeedbackDialog) {
+        FeedbackDialog(
+            onSelect = { category ->
+                showFeedbackDialog = false
+                onComposeEmail(category.emailSubject)
+            },
+            onCancel = { showFeedbackDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun FeedbackDialog(
+    onSelect: (FeedbackCategory) -> Unit,
+    onCancel: () -> Unit
+) {
+    Dialog(onDismissRequest = onCancel) {
+        Card(shape = MaterialTheme.shapes.extraLarge) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                Text(
+                    text = "Send Feedback",
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                FeedbackCategory.entries.forEach { category ->
+                    Button(
+                        onClick = { onSelect(category) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(text = category.label)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                TextButton(
+                    onClick = onCancel,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cancel")
+                }
+            }
+        }
     }
 }
 

@@ -3,6 +3,7 @@ package co.delalande.prompter
 import androidx.compose.ui.window.ComposeUIViewController
 import co.delalande.prompter.billing.IOSBillingManager
 import co.delalande.prompter.data.PlatformStorage
+import co.delalande.prompter.feedback.FEEDBACK_EMAIL_ADDRESS
 import co.delalande.prompter.log.Log
 import co.delalande.prompter.model.SaveResult
 import co.delalande.prompter.recording.IOSCameraRecorder
@@ -11,6 +12,8 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSBundle
 import platform.Foundation.NSFileManager
 import platform.Foundation.NSURL
+import platform.Foundation.NSURLComponents
+import platform.Foundation.NSURLQueryItem
 import platform.Photos.*
 import platform.UIKit.*
 import platform.darwin.dispatch_async
@@ -31,7 +34,8 @@ fun MainViewController(): UIViewController {
             billingManagerFactory = { IOSBillingManager() },
             buildInfo = buildInfo,
             onSaveToPhotos = { filePath, onResult -> saveVideoToPhotoLibrary(filePath, onResult) },
-            onOpenVideo = { openInPhotos() }
+            onOpenVideo = { openInPhotos() },
+            onComposeEmail = { subject -> composeEmail(subject) }
         )
     }
 }
@@ -86,6 +90,16 @@ private fun saveVideoToPhotoLibrary(filePath: String, onResult: (SaveResult) -> 
 @OptIn(ExperimentalForeignApi::class)
 private fun openInPhotos() {
     val url = NSURL.URLWithString("photos-redirect://") ?: return
+    UIApplication.sharedApplication.openURL(url, options = emptyMap<Any?, Any?>(), completionHandler = null)
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun composeEmail(subject: String) {
+    val components = NSURLComponents()
+    components.scheme = "mailto"
+    components.path = FEEDBACK_EMAIL_ADDRESS
+    components.queryItems = listOf(NSURLQueryItem(name = "subject", value = subject))
+    val url = components.URL ?: return
     UIApplication.sharedApplication.openURL(url, options = emptyMap<Any?, Any?>(), completionHandler = null)
 }
 

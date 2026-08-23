@@ -53,7 +53,8 @@ fun App(
     billingManagerFactory: () -> BillingManager,
     buildInfo: String,
     onSaveToPhotos: (String, (SaveResult) -> Unit) -> Unit,
-    onOpenVideo: (String) -> Unit
+    onOpenVideo: (String) -> Unit,
+    onComposeEmail: (String) -> Unit
 ) {
     val repository = remember { ScriptRepository(platformStorage) }
     val settingsRepository = remember { SettingsRepository(platformStorage) }
@@ -119,7 +120,8 @@ fun App(
                         billingManager = billingManager,
                         isDebug = isDebug,
                         buildInfo = buildInfo,
-                        onBack = { currentScreen = Screen.ScriptList }
+                        onBack = { currentScreen = Screen.ScriptList },
+                        onComposeEmail = onComposeEmail
                     )
                 }
 
