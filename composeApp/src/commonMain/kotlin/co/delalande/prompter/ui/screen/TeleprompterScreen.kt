@@ -145,8 +145,8 @@ fun TeleprompterScreen(
                         .align(pipAlign)
                         .padding(
                             top = if (isLandscape) 16.dp else 0.dp,
-                            end = if (isLandscape) 16.dp else 8.dp,
-                            bottom = if (isLandscape) 0.dp else 200.dp,
+                            end = if (isLandscape) 16.dp else 16.dp,
+                            bottom = if (isLandscape) 0.dp else 16.dp,
                             start = if (isLandscape) 0.dp else 0.dp
                         )
                         .width(pipSize)
@@ -160,7 +160,7 @@ fun TeleprompterScreen(
         }
 
         val pipEndPadding = if (isCameraPip) {
-            if (isLandscape) 100.dp else 170.dp
+            if (isLandscape) 100.dp else 0.dp
         } else 0.dp
 
         TeleprompterContent(
@@ -171,6 +171,7 @@ fun TeleprompterScreen(
                 .zIndex(if (isCameraPip) 0f else 1f),
             pipEndPadding = pipEndPadding,
             isLandscape = isLandscape,
+            isVerticalPip = isCameraPip && !isLandscape,
             textDisplayStyle = textDisplayStyle
         )
 
@@ -348,6 +349,7 @@ private fun TeleprompterContent(
     modifier: Modifier = Modifier,
     pipEndPadding: Dp = 0.dp,
     isLandscape: Boolean,
+    isVerticalPip: Boolean = false,
     textDisplayStyle: TextDisplayStyle,
 ) {
     Box(modifier = modifier.fillMaxSize()) {
@@ -369,7 +371,11 @@ private fun TeleprompterContent(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(
-                    bottom = if (isLandscape) 0.dp else 120.dp,
+                    bottom = when {
+                        isVerticalPip -> 280.dp
+                        isLandscape -> 0.dp
+                        else -> 120.dp
+                    },
                     top = if (isLandscape) 0.dp else 48.dp
                 )
         ) {
@@ -393,7 +399,7 @@ private fun TeleprompterContent(
                 fontFamily = fontFamily
             )
 
-            val horizontalPadding = if (isLandscape) 56.dp else 28.dp
+            val horizontalPadding = if (isVerticalPip) 0.dp else if (isLandscape) 56.dp else 28.dp
             val endExtraPadding = if (isLandscape) 140.dp else 0.dp
             val availableWidthPx = with(density) {
                 (maxWidth - horizontalPadding * 2 - endExtraPadding - pipEndPadding).toPx()
@@ -446,7 +452,7 @@ private fun TeleprompterContent(
                     .fillMaxSize()
                     .padding(
                         start = horizontalPadding,
-                        end = horizontalPadding + endExtraPadding + pipEndPadding
+                        end = if (isVerticalPip) 0.dp else horizontalPadding + endExtraPadding + pipEndPadding
                     )
             ) {
                 items(chunkCount, key = { it }) { chunkIndex ->
