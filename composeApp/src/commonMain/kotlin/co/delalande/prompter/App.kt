@@ -52,6 +52,7 @@ fun App(
     cameraRecorderFactory: () -> CameraRecorder,
     billingManagerFactory: () -> BillingManager,
     buildInfo: String,
+    sharedText: String? = null,
     onSaveToPhotos: (String, (SaveResult) -> Unit) -> Unit,
     onOpenVideo: (String) -> Unit,
     onComposeEmail: (String) -> Unit
@@ -68,6 +69,14 @@ fun App(
     var saveResult by remember { mutableStateOf<SaveResult?>(null) }
     var isSavingVideo by remember { mutableStateOf(false) }
     var showSavingDialog by remember { mutableStateOf(false) }
+    var initialContentForNewScript by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(sharedText) {
+        val text = sharedText ?: return@LaunchedEffect
+        editingScriptId = null
+        initialContentForNewScript = text
+        currentScreen = Screen.ScriptEditor
+    }
 
     val openTeleprompter: (Script, Int) -> Unit = { script, startWordIndex ->
         val recorder = cameraRecorderFactory()
@@ -110,7 +119,11 @@ fun App(
                     ScriptEditorScreen(
                         scriptId = editingScriptId,
                         repository = repository,
-                        onBack = { currentScreen = Screen.ScriptList },
+                        initialContent = if (editingScriptId == null) initialContentForNewScript else null,
+                        onBack = {
+                            initialContentForNewScript = null
+                            currentScreen = Screen.ScriptList
+                        },
                         onPlay = { script, startWordIndex -> openTeleprompter(script, startWordIndex) }
                     )
                 }

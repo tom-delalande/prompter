@@ -32,16 +32,17 @@ import kotlinx.coroutines.delay
 fun ScriptEditorScreen(
     scriptId: String?,
     repository: ScriptRepository,
+    initialContent: String? = null,
     onBack: () -> Unit,
     onPlay: (Script, Int) -> Unit
 ) {
     val existing = scriptId?.let { repository.getById(it) }
     val currentId = remember { existing?.id ?: generateId() }
     val initialTitle = remember { existing?.title ?: "" }
-    val initialContent = remember { existing?.content ?: "" }
+    val initialContentValue = remember { existing?.content ?: initialContent ?: "" }
 
     var title by remember { mutableStateOf(initialTitle) }
-    var contentValue by remember { mutableStateOf(TextFieldValue(initialContent)) }
+    var contentValue by remember { mutableStateOf(TextFieldValue(initialContentValue)) }
     var lastUpdatedAt by remember { mutableStateOf(existing?.updatedAt ?: 0L) }
 
     val content = contentValue.text

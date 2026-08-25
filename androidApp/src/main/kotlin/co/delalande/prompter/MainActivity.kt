@@ -12,6 +12,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.lifecycleScope
 import co.delalande.prompter.billing.AndroidBillingManager
 import co.delalande.prompter.data.PlatformStorage
@@ -33,10 +34,13 @@ class MainActivity : ComponentActivity() {
         private const val TAG = "MainActivity"
     }
 
+    private var sharedText = mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         initLogging()
+        handleShareIntent(intent)
 
         setContent {
             App(
@@ -48,6 +52,7 @@ class MainActivity : ComponentActivity() {
                     AndroidBillingManager(this@MainActivity)
                 },
                 buildInfo = "v${BuildConfig.VERSION_NAME} · ${BuildInfo.GIT_COMMIT}",
+                sharedText = sharedText.value,
                 onSaveToPhotos = { filePath, onDone ->
                     lifecycleScope.launch {
                         val result = withContext(Dispatchers.IO) {
@@ -63,6 +68,17 @@ class MainActivity : ComponentActivity() {
                 onOpenVideo = { uriString -> openVideo(uriString) },
                 onComposeEmail = { subject -> composeEmail(subject) }
             )
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleShareIntent(intent)
+    }
+
+    private fun handleShareIntent(intent: Intent?) {
+        if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
+            sharedText.value = intent.getStringExtra(Intent.EXTRA_TEXT)
         }
     }
 
