@@ -1,6 +1,8 @@
 package co.delalande.prompter.recording
 
 import co.delalande.prompter.log.Log
+import co.delalande.prompter.model.VideoFrameRate
+import co.delalande.prompter.model.VideoResolution
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.AVFAudio.*
 import platform.AVFoundation.*
@@ -21,9 +23,19 @@ class IOSCameraRecorder : CameraRecorder {
     private var currentOutputPath: String? = null
     private var delegateObj: RecordingDelegate? = null
     private var isFrontCamera = true
+    private var videoResolution: VideoResolution = VideoResolution.FHD_1080
+    private var videoFrameRate: VideoFrameRate = VideoFrameRate.FPS_30
 
     private val previewViewImpl = PreviewView()
     val previewView: UIView get() = previewViewImpl
+
+    override fun configure(resolution: VideoResolution, frameRate: VideoFrameRate) {
+        videoResolution = resolution
+        videoFrameRate = frameRate
+        if (captureSession != null) {
+            reconfigureSession()
+        }
+    }
 
     override fun setListener(listener: RecordingListener?) {
         this.listener = listener
@@ -49,7 +61,7 @@ class IOSCameraRecorder : CameraRecorder {
     private fun startSession() {
         if (captureSession != null) return
         val session = AVCaptureSession()
-        session.sessionPreset = AVCaptureSessionPresetHigh
+        session.sessionPreset = sessionPresetForResolution(videoResolution)
         captureSession = session
 
         val layer = AVCaptureVideoPreviewLayer(session = session)
@@ -86,6 +98,19 @@ class IOSCameraRecorder : CameraRecorder {
         ) ?: AVCaptureDevice.defaultDeviceWithMediaType(AVMediaTypeVideo) ?: return
         val input = AVCaptureDeviceInput.deviceInputWithDevice(device, null) ?: return
         captureSession?.addInput(input)
+    }
+
+    private fun reconfigureSession() {
+        val session = captureSession ?: return
+        session.beginConfiguration()
+        session.sessionPreset = sessionPresetForResolution(videoResolution)
+        session.commitConfiguration()
+    }
+
+    private fun sessionPresetForResolution(resolution: VideoResolution): String? = when (resolution) {
+        VideoResolution.HD_720 -> AVCaptureSessionPreset1280x720
+        VideoResolution.FHD_1080 -> AVCaptureSessionPreset1920x1080
+        VideoResolution.UHD_4K -> AVCaptureSessionPresetHigh
     }
 
     private fun configureAudio() {

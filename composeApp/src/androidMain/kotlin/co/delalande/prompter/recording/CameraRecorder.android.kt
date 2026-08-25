@@ -12,6 +12,8 @@ import androidx.camera.video.*
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
+import co.delalande.prompter.model.VideoFrameRate
+import co.delalande.prompter.model.VideoResolution
 import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -30,6 +32,16 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
     private var lifecycleOwner: LifecycleOwner? = null
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var videoResolution: VideoResolution = VideoResolution.FHD_1080
+    private var videoFrameRate: VideoFrameRate = VideoFrameRate.FPS_30
+
+    override fun configure(resolution: VideoResolution, frameRate: VideoFrameRate) {
+        videoResolution = resolution
+        videoFrameRate = frameRate
+        if (lifecycleOwner != null) {
+            bindCamera()
+        }
+    }
 
     override fun setListener(listener: RecordingListener?) {
         this.listener = listener
@@ -65,9 +77,22 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
             .also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
         val rotation = getDisplayRotation()
+
+        val quality = when (videoResolution) {
+            VideoResolution.HD_720 -> Quality.HD
+            VideoResolution.FHD_1080 -> Quality.FHD
+            VideoResolution.UHD_4K -> Quality.UHD
+        }
+        val fps = when (videoFrameRate) {
+            VideoFrameRate.FPS_24 -> 24
+            VideoFrameRate.FPS_30 -> 30
+            VideoFrameRate.FPS_60 -> 60
+        }
+
         val recorder = Recorder.Builder()
-            .setQualitySelector(QualitySelector.from(Quality.HIGHEST))
+            .setQualitySelector(QualitySelector.from(quality))
             .build()
+        recorder.setVideoEncodingFrameRate(fps)
 
         videoCapture = VideoCapture.withOutput(recorder)
         videoCapture?.targetRotation = rotation

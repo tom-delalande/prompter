@@ -30,6 +30,8 @@ import co.delalande.prompter.feedback.FeedbackCategory
 import co.delalande.prompter.log.Log
 import co.delalande.prompter.model.CameraMode
 import co.delalande.prompter.model.Script
+import co.delalande.prompter.model.VideoFrameRate
+import co.delalande.prompter.model.VideoResolution
 import co.delalande.prompter.ui.FontFamilyOptions
 import co.delalande.prompter.ui.TextDisplaySample
 import co.delalande.prompter.ui.parseHexColor
@@ -160,6 +162,40 @@ fun SettingsScreen(
                 text = "When starting a new recording, the camera preview will default to this mode.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Text(
+                text = "Video Recording",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Resolution",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            VideoResolutionDropdown(
+                current = settings.videoResolution,
+                onChange = { resolution ->
+                    settings = settings.copy(videoResolution = resolution)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Frame Rate",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            VideoFrameRateDropdown(
+                current = settings.videoFrameRate,
+                onChange = { frameRate ->
+                    settings = settings.copy(videoFrameRate = frameRate)
+                }
             )
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -491,6 +527,76 @@ private fun FontDropdown(
             }
         }
     }
+}
+
+@Composable
+private fun VideoResolutionDropdown(
+    current: VideoResolution,
+    onChange: (VideoResolution) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(current.label())
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            VideoResolution.entries.forEach { resolution ->
+                DropdownMenuItem(
+                    text = { Text(resolution.label()) },
+                    onClick = {
+                        onChange(resolution)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VideoFrameRateDropdown(
+    current: VideoFrameRate,
+    onChange: (VideoFrameRate) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(current.label())
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            VideoFrameRate.entries.forEach { frameRate ->
+                DropdownMenuItem(
+                    text = { Text(frameRate.label()) },
+                    onClick = {
+                        onChange(frameRate)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+private fun VideoResolution.label(): String = when (this) {
+    VideoResolution.HD_720 -> "720p"
+    VideoResolution.FHD_1080 -> "1080p"
+    VideoResolution.UHD_4K -> "4K"
+}
+
+private fun VideoFrameRate.label(): String = when (this) {
+    VideoFrameRate.FPS_24 -> "24fps"
+    VideoFrameRate.FPS_30 -> "30fps"
+    VideoFrameRate.FPS_60 -> "60fps"
 }
 
 private fun fontFamilyLabel(name: String): String =

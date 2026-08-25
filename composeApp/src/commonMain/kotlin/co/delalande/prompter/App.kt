@@ -70,10 +70,13 @@ fun App(
     var showSavingDialog by remember { mutableStateOf(false) }
 
     val openTeleprompter: (Script, Int) -> Unit = { script, startWordIndex ->
+        val recorder = cameraRecorderFactory()
+        val currentSettings = settingsRepository.load()
+        recorder.configure(currentSettings.videoResolution, currentSettings.videoFrameRate)
         teleprompterViewModel = TeleprompterViewModel(
             script = script,
             speechRecognizer = speechRecognizerFactory(),
-            cameraRecorder = cameraRecorderFactory(),
+            cameraRecorder = recorder,
             startWordIndex = startWordIndex,
         )
         previousScreenBeforeTeleprompter = currentScreen
