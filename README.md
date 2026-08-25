@@ -61,6 +61,55 @@ The iOS app is a thin SwiftUI shell (`iosApp/iosApp/`) over the shared Compose c
 | App aborts at launch in the simulator | `Info.plist` must contain `CADisableMinimumFrameDurationOnPhone = true` (already set). |
 | Link error `Undefined symbols: _OBJC_CLASS_$_UIViewLayoutRegion` | Compose must be ≥ 1.12.0-alpha02 (already pinned). Xcode 26 would also work. |
 
+## Deploying to Google Play
+
+Releases are automated with [Fastlane](https://fastlane.tools/). One command bumps the version, builds the release AAB, uploads it to the Play Console internal track, and tags.
+
+Versions are derived from **git tags** — no version files, no committed version bumps.
+
+### One-time setup
+
+1. Install Fastlane:
+   ```bash
+   gem install fastlane
+   # or: brew install fastlane
+   ```
+
+2. Create a **Google Play service account**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/) → create a project (or use an existing one).
+   - Enable the **Google Play Developer API**.
+   - Go to **IAM & Admin → Service Accounts** → create one → download the JSON key.
+   - In [Play Console](https://play.google.com/console) → **Setup → API access** → link the service account with **Release manager** permissions.
+
+3. Place the JSON key at `fastlane/play-store-key.json` (gitignored).
+
+4. Make sure the release keystore exists at `androidApp/keystore/release.keystore` and `androidApp/keystore.properties` is configured (see `DEPLOYMENT.md` for keystore generation).
+
+### Releasing
+
+```bash
+# First release (no tags yet) — specify the starting version
+fastlane android release version:10
+
+# Subsequent releases — auto-increments from last tag
+fastlane android release
+```
+
+This will:
+1. Read the last git tag (e.g. `10`), increment to `11`
+2. Generate release notes from git commits since that tag
+3. Build the release AAB with version passed as Gradle properties (no file edits)
+4. Upload to the **internal testing** track on Play Console
+5. Create and push the new git tag (`11`)
+
+After uploading, go to **Play Console → Release → Production** to promote the build.
+
+### Build only (no upload)
+
+```bash
+fastlane android build
+```
+
 ## Further reading
 
 - `AGENTS.md` — architecture, conventions, and debugging on the physical Android device.

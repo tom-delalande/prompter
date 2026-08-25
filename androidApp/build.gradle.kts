@@ -20,8 +20,10 @@ android {
         applicationId = "co.delalande.prompter"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "9"
+        versionCode = (project.findProperty("versionCode")?.toString()
+            ?: throw GradleException("versionCode not set. Pass -PversionCode=<N> or use Fastlane.")).toInt()
+        versionName = project.findProperty("versionName")?.toString()
+            ?: throw GradleException("versionName not set. Pass -PversionName=<N> or use Fastlane.")
     }
 
     compileOptions {

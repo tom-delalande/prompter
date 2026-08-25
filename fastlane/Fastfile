@@ -1,0 +1,79 @@
+default_platform(:android)
+
+platform :android do
+  desc "Build, upload to internal track, and tag"
+  lane :release do |options|
+    # Determine version from git tags
+    last_tag = nil
+    begin
+      last_tag = sh("git describe --tags --abbrev=0 2>/dev/null", log: false).strip
+    rescue
+      # no tags yet
+    end
+
+    if options[:version]
+      new_version = options[:version].to_i
+    elsif last_tag
+      current_version = last_tag.to_i
+      new_version = current_version + 1
+    else
+      UI.user_error!("No git tags found. Run with `version:` for the first release:\n  fastlane android release version:10")
+    end
+
+    UI.message("Version: #{last_tag ? "#{last_tag} → " : ""}v#{new_version}")
+
+    # Release notes from commits since last tag
+    release_notes = if last_tag
+      notes = changelog_from_git_commits(
+        pretty: "- %s",
+        merge_commit_filtering: "exclude_merges"
+      )
+      notes.strip.empty? ? "Bug fixes and improvements." : notes
+    else
+      "Initial release."
+    end
+
+    UI.message("Release notes:\n#{release_notes}")
+
+    # Write release notes to changelogs file
+    changelogs_dir = "metadata/android/en-US/changelogs"
+    sh("mkdir -p #{changelogs_dir}")
+    IO.write("#{changelogs_dir}/#{new_version}.txt", release_notes)
+
+    # Build with version passed as Gradle properties (no file edits)
+    gradle(
+      task: ":androidApp:bundleRelease",
+      properties: {
+        "versionCode" => new_version.to_s,
+        "versionName" => new_version.to_s
+      }
+    )
+
+    aab_path = lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
+
+    # Upload to internal track
+    upload_to_play_store(
+      track: "internal",
+      aab: aab_path,
+      metadata_path: "fastlane/metadata/android",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+
+    # Tag
+    version_tag = new_version.to_s
+    add_git_tag(tag: version_tag)
+    push_to_git_remote(tags: true)
+
+    UI.success("Released #{version_tag} — uploaded to internal track.")
+    UI.success("Promote in Play Console → Release → Production.")
+  end
+
+  desc "Build release AAB without uploading"
+  lane :build do
+    gradle(task: ":androidApp:bundleRelease")
+    UI.success("AAB at: #{lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]}")
+  end
+end

@@ -31,3 +31,12 @@ iosApp/DerivedData/
 *.tmp
 .cache/
 *~lock~
+
+# Fastlane
+fastlane/play-store-key.json
+fastlane/metadata/android/en-US/changelogs
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/README.md
