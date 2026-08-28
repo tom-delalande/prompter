@@ -124,7 +124,17 @@ fun TeleprompterScreen(
             .fillMaxSize()
             .background(Color.Black)
     ) {
-        SystemBackHandler(onBack = onSwipeBack)
+        SystemBackHandler(
+            onBack = {
+                if (viewModel.isProcessing) return@SystemBackHandler
+                if (viewModel.isRecording) {
+                    showExitConfirmDialog = true
+                } else {
+                    viewModel.destroy()
+                    onBack()
+                }
+            }
+        )
 
         val isLandscape = maxWidth > maxHeight
         val isCameraPip = isPipMode
