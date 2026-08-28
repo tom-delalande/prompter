@@ -373,10 +373,10 @@ private fun TeleprompterContent(
                 .padding(
                     bottom = when {
                         isVerticalPip -> 280.dp
-                        isLandscape -> 0.dp
-                        else -> 120.dp
+                        isLandscape -> 110.dp
+                        else -> 150.dp
                     },
-                    top = if (isLandscape) 0.dp else 48.dp
+                    top = if (isLandscape) 44.dp else 48.dp
                 )
         ) {
             val textAreaDp = maxHeight
