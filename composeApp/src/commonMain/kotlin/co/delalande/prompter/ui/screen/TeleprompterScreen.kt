@@ -385,7 +385,7 @@ private fun TeleprompterContent(
                         isLandscape -> 110.dp
                         else -> 150.dp
                     },
-                    top = if (isLandscape) 44.dp else 48.dp
+                    top = if (isLandscape) 44.dp else 96.dp
                 )
         ) {
             val textAreaDp = maxHeight
@@ -408,7 +408,7 @@ private fun TeleprompterContent(
                 fontFamily = fontFamily
             )
 
-            val horizontalPadding = if (isVerticalPip) 0.dp else if (isLandscape) 56.dp else 28.dp
+            val horizontalPadding = if (isLandscape) 56.dp else 28.dp
             val endExtraPadding = if (isLandscape) 140.dp else 0.dp
             val availableWidthPx = with(density) {
                 (maxWidth - horizontalPadding * 2 - endExtraPadding - pipEndPadding).toPx()
@@ -461,7 +461,7 @@ private fun TeleprompterContent(
                     .fillMaxSize()
                     .padding(
                         start = horizontalPadding,
-                        end = if (isVerticalPip) 0.dp else horizontalPadding + endExtraPadding + pipEndPadding
+                        end = horizontalPadding + endExtraPadding + pipEndPadding
                     )
             ) {
                 items(chunkCount, key = { it }) { chunkIndex ->
