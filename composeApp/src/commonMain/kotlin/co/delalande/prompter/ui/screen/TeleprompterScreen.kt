@@ -90,8 +90,7 @@ fun TeleprompterScreen(
     LaunchedEffect(viewModel.lastRecordedFile) {
         if (viewModel.lastRecordedFile != null) {
             viewModel.lastRecordedFile?.let { onSaveToPhotos(it) }
-            viewModel.destroy()
-            onBack()
+            viewModel.resetAfterSave()
         }
     }
 

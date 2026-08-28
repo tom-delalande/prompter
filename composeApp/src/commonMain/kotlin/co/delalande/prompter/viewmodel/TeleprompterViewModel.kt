@@ -230,6 +230,12 @@ class TeleprompterViewModel(
         lastPartialTokens = emptyList()
     }
 
+    fun resetAfterSave() {
+        lastRecordedFile = null
+        isProcessing = false
+        Log.i(TAG) { "resetAfterSave" }
+    }
+
     fun destroy() {
         Log.i(TAG) { "destroy (word $currentWordIndex of ${script.wordCount()})" }
         speechRecognizer.destroy()
