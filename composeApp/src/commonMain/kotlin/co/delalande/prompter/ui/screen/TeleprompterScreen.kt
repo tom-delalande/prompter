@@ -25,14 +25,18 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import androidx.compose.ui.zIndex
 import co.delalande.prompter.data.DebugRepository
 import co.delalande.prompter.model.CameraMode
@@ -413,34 +417,46 @@ private fun TeleprompterContent(
             val availableWidthPx = with(density) {
                 (maxWidth - horizontalPadding * 2 - endExtraPadding).toPx()
             }
-            val fontSizePx = with(density) { fontSize.toPx() }
-            val charWidthFactor = when (textDisplayStyle.fontFamily) {
-                "Monospace" -> 0.60f
-                "Serif" -> 0.46f
-                "Cursive" -> 0.50f
-                else -> 0.43f
-            }
-            val charsPerLine = (availableWidthPx / (fontSizePx * charWidthFactor)).toInt().coerceIn(10, 160)
 
-            val chunkStarts = remember(words, charsPerLine) {
-                val starts = mutableListOf(0)
-                var charBudget = 0
-                for (i in words.indices) {
-                    val wordLen = words[i].length
-                    val spaceLen = if (i > 0 && !lineBreakBefore[i]) 3 else 0
-                    if (i > 0 && charBudget + spaceLen + wordLen > charsPerLine) {
-                        val lineFullness = charBudget.toFloat() / charsPerLine
-                        if (lineFullness >= 0.45f) {
-                            starts.add(i)
-                            charBudget = wordLen
-                        } else {
-                            charBudget += spaceLen + wordLen
+            val textMeasurer = rememberTextMeasurer()
+
+            val fullText = remember(words, lineBreakBefore) {
+                buildString {
+                    for (i in words.indices) {
+                        if (i > 0) {
+                            append(if (lineBreakBefore[i]) "\n" else "   ")
                         }
-                    } else {
-                        charBudget += spaceLen + wordLen
+                        append(words[i])
                     }
                 }
-                starts
+            }
+
+            val chunkStarts = remember(fullText, lineBreakBefore, availableWidthPx, baseStyle) {
+                if (words.isEmpty()) {
+                    emptyList()
+                } else {
+                    val layout = textMeasurer.measure(
+                        text = AnnotatedString(fullText),
+                        style = baseStyle,
+                        constraints = Constraints(maxWidth = availableWidthPx.roundToInt())
+                    )
+                    val wordStarts = IntArray(words.size)
+                    var offset = 0
+                    for (i in words.indices) {
+                        wordStarts[i] = offset
+                        offset += words[i].length
+                        if (i < words.lastIndex) offset += if (lineBreakBefore[i + 1]) 1 else 3
+                    }
+                    val starts = mutableListOf(0)
+                    var line = 1
+                    while (line < layout.lineCount) {
+                        val lineStartOffset = layout.getLineStart(line)
+                        if (lineStartOffset >= fullText.length) break
+                        starts.add(wordStarts.indexOfLast { it <= lineStartOffset })
+                        line++
+                    }
+                    starts
+                }
             }
             val chunkCount = chunkStarts.size
             val listState = rememberLazyListState()
