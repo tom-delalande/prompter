@@ -68,7 +68,28 @@ platform :android do
     push_to_git_remote(tags: true)
 
     UI.success("Released #{version_tag} — uploaded to internal track.")
-    UI.success("Promote in Play Console → Release → Production.")
+    UI.message("Promote to production with: fastlane android promote")
+    UI.message("Staged rollout: fastlane android promote rollout:20")
+  end
+
+  desc "Promote the latest internal build to production"
+  lane :promote do |options|
+    promotion = options[:rollout] ? { rollout: options[:rollout].to_f } : {}
+
+    upload_to_play_store(
+      track: "internal",
+      track_promote_to: "production",
+      metadata_path: "fastlane/metadata/android",
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      skip_upload_changelogs: true,
+      **promotion
+    )
+
+    UI.success("Promoted internal build to production.")
   end
 
   desc "Build release AAB without uploading"
