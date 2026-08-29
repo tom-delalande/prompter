@@ -32,11 +32,11 @@ When you need to observe app behavior but can't tap the screen (PIN-locked devic
 ./gradlew :androidApp:assembleDebug
 adb install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
 adb logcat -c
-adb shell am force-stop co.delalande.prompter; adb shell am start -n co.delalande.prompter/.MainActivity
+adb shell am force-stop co.delalande.prompter.debug; adb shell am start -n co.delalande.prompter.debug/.MainActivity
 sleep 10 && adb logcat -d 2>/dev/null | grep "MYTAG"
 ```
 
-- `adb shell pidof co.delalande.prompter` confirms the app is running.
+- `adb shell pidof co.delalande.prompter.debug` confirms the app is running.
 
 ## Locked-device facts (learned the hard way)
 
@@ -57,10 +57,10 @@ On the lock screen this shows the keyguard widgets — a signal the device is lo
 
 ## Inspecting app-private storage
 
-`adb shell run-as co.delalande.prompter cat files/scripts.json` works on debuggable builds — use it to inspect/edit app-private storage (e.g. to delete a `debug-large` script you injected). Push back via:
+`adb shell run-as co.delalande.prompter.debug cat files/scripts.json` works on debuggable builds — use it to inspect/edit app-private storage (e.g. to delete a `debug-large` script you injected). Push back via:
 
 ```bash
-adb shell "run-as co.delalande.prompter sh -c 'cat > files/scripts.json'" < localfile
+adb shell "run-as co.delalande.prompter.debug sh -c 'cat > files/scripts.json'" < localfile
 ```
 
 ## Cleanup after device debugging (mandatory)

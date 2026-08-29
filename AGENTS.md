@@ -142,17 +142,17 @@ To observe behavior without tapping the screen (locked device):
    ./gradlew :androidApp:assembleDebug
    adb install -r androidApp/build/outputs/apk/debug/androidApp-debug.apk
    adb logcat -c
-   adb shell am force-stop co.delalande.prompter; adb shell am start -n co.delalande.prompter/.MainActivity
+   adb shell am force-stop co.delalande.prompter.debug; adb shell am start -n co.delalande.prompter.debug/.MainActivity
    sleep 10 && adb logcat -d 2>/dev/null | grep "TeleprompterVM"
    ```
-3. `adb shell pidof co.delalande.prompter` confirms the app is running.
+3. `adb shell pidof co.delalande.prompter.debug` confirms the app is running. (The debug build uses `applicationIdSuffix = ".debug"`, so it installs alongside a Play/internal-testing release; debug-only adb commands use the `.debug` package name.)
 
 ### Locked-device facts
 
 - A PIN-locked device **cannot** be unlocked via adb (not rooted). `wm dismiss-keyguard`, `input keyevent 82`, swipe gestures, and `svc power stayon true` do **not** bypass a secure PIN. Get the user to unlock, or verify non-visual logic headlessly.
 - **Logcat works even under the keyguard**, and recomposition triggered by state writes still happens — window/layout/state logic IS verifiable while locked.
 - **Compose animations do NOT run behind the keyguard / while the screen sleeps** (no vsync frames → `Animatable.animateTo` freezes at its last value while `target` keeps changing). This is a **test artifact, not a bug** — verify by inspection or with the user watching visible mode.
-- `adb shell run-as co.delalande.prompter cat files/scripts.json` inspects/edits app-private storage on debuggable builds; write back via `adb shell "run-as co.delalande.prompter sh -c 'cat > files/scripts.json'" < localfile`.
+- `adb shell run-as co.delalande.prompter.debug cat files/scripts.json` inspects/edits app-private storage on debuggable builds; write back via `adb shell "run-as co.delalande.prompter.debug sh -c 'cat > files/scripts.json'" < localfile`.
 
 ### Cleanup after device debugging (mandatory)
 
