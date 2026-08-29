@@ -31,7 +31,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -147,17 +146,18 @@ fun TeleprompterScreen(
             CameraPreview(
                 cameraRecorder = viewModel.cameraRecorder,
                 modifier = if (isCameraPip) {
-                    val pipSize = if (isLandscape) 180.dp else 140.dp
+                    val pipSize = if (isLandscape) 120.dp * (16f / 9f) else 140.dp
                     val pipAspect = if (isLandscape) 16f / 9f else 9f / 16f
                     val pipAlign = if (isLandscape) Alignment.TopEnd else Alignment.BottomEnd
                     Modifier
                         .align(pipAlign)
                         .padding(
-                            top = if (isLandscape) 16.dp else 0.dp,
-                            end = if (isLandscape) 16.dp else 16.dp,
-                            bottom = if (isLandscape) 0.dp else 16.dp,
-                            start = if (isLandscape) 0.dp else 0.dp
+                            top = if (isLandscape) 8.dp else 0.dp,
+                            end = 16.dp,
+                            bottom = if (isLandscape) 0.dp else 12.dp,
+                            start = 0.dp
                         )
+                        .then(if (isLandscape) Modifier.statusBarsPadding() else Modifier)
                         .width(pipSize)
                         .aspectRatio(pipAspect)
                         .clip(RoundedCornerShape(12.dp))
@@ -168,20 +168,16 @@ fun TeleprompterScreen(
             )
         }
 
-        val pipEndPadding = if (isCameraPip) {
-            if (isLandscape) 100.dp else 0.dp
-        } else 0.dp
-
         TeleprompterContent(
             viewModel = viewModel,
             modifier = Modifier
                 .fillMaxSize()
                 .clickable { if (!isPipMode) isPipMode = true }
                 .zIndex(if (isCameraPip) 0f else 1f),
-            pipEndPadding = pipEndPadding,
             isLandscape = isLandscape,
             isVerticalPip = isCameraPip && !isLandscape,
-            textDisplayStyle = textDisplayStyle
+            textDisplayStyle = textDisplayStyle,
+            onTapEmptyWordArea = { if (!isPipMode) isPipMode = true }
         )
 
         IconButton(
@@ -251,10 +247,12 @@ fun TeleprompterScreen(
 
         Column(
             modifier = Modifier
-                .align(Alignment.TopEnd)
+                .align(if (isLandscape) Alignment.BottomEnd else Alignment.TopEnd)
                 .zIndex(4f)
-                .statusBarsPadding()
-                .padding(top = 10.dp, end = 14.dp),
+                .then(
+                    if (isLandscape) Modifier.navigationBarsPadding().padding(bottom = 24.dp, end = 14.dp)
+                    else Modifier.statusBarsPadding().padding(top = 10.dp, end = 14.dp)
+                ),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (viewModel.isExternalMic) {
@@ -356,11 +354,13 @@ private fun RecordButton(viewModel: TeleprompterViewModel) {
 private fun TeleprompterContent(
     viewModel: TeleprompterViewModel,
     modifier: Modifier = Modifier,
-    pipEndPadding: Dp = 0.dp,
     isLandscape: Boolean,
     isVerticalPip: Boolean = false,
     textDisplayStyle: TextDisplayStyle,
+    onTapEmptyWordArea: () -> Unit = {},
 ) {
+    val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val bottomNavInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     Box(modifier = modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
@@ -382,10 +382,10 @@ private fun TeleprompterContent(
                 .padding(
                     bottom = when {
                         isVerticalPip -> 280.dp
-                        isLandscape -> 110.dp
+                        isLandscape -> bottomNavInset + 16.dp
                         else -> 150.dp
                     },
-                    top = if (isLandscape) 44.dp else 96.dp
+                    top = if (isLandscape) 44.dp else statusBarTop + 60.dp
                 )
         ) {
             val textAreaDp = maxHeight
@@ -411,7 +411,7 @@ private fun TeleprompterContent(
             val horizontalPadding = if (isLandscape) 56.dp else 28.dp
             val endExtraPadding = if (isLandscape) 140.dp else 0.dp
             val availableWidthPx = with(density) {
-                (maxWidth - horizontalPadding * 2 - endExtraPadding - pipEndPadding).toPx()
+                (maxWidth - horizontalPadding * 2 - endExtraPadding).toPx()
             }
             val fontSizePx = with(density) { fontSize.toPx() }
             val charWidthFactor = when (textDisplayStyle.fontFamily) {
@@ -461,7 +461,7 @@ private fun TeleprompterContent(
                     .fillMaxSize()
                     .padding(
                         start = horizontalPadding,
-                        end = horizontalPadding + endExtraPadding + pipEndPadding
+                        end = horizontalPadding + endExtraPadding
                     )
             ) {
                 items(chunkCount, key = { it }) { chunkIndex ->
@@ -528,6 +528,8 @@ private fun TeleprompterContent(
                                         val annotations = annotatedString.getStringAnnotations("word", charOffset, end)
                                         if (annotations.isNotEmpty()) {
                                             viewModel.seekTo(annotations.first().item.toInt())
+                                        } else {
+                                            onTapEmptyWordArea()
                                         }
                                     }
                                 },
