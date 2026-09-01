@@ -27,7 +27,7 @@ class ScriptRepository(storage: PlatformStorage) {
         val index = scripts.indexOfFirst { it.id == script.id }
         if (index >= 0) {
             val existing = scripts[index]
-            if (existing.words == script.words) {
+            if (existing.title == script.title && existing.content == script.content) {
                 persist()
                 return false
             }
