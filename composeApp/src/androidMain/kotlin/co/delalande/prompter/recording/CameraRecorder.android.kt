@@ -1,6 +1,7 @@
 package co.delalande.prompter.recording
 
 import android.content.Context
+import android.os.Build
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
@@ -57,8 +58,14 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
     }
 
     private fun getDisplayRotation(): Int {
-        val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
-        return windowManager?.defaultDisplay?.rotation ?: Surface.ROTATION_0
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            context.display.rotation
+        } else {
+            @Suppress("DEPRECATION")
+            val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+            @Suppress("DEPRECATION")
+            windowManager?.defaultDisplay?.rotation ?: Surface.ROTATION_0
+        }
     }
 
     private fun bindCamera() {

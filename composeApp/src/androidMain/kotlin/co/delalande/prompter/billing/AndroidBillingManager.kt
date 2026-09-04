@@ -79,7 +79,7 @@ class AndroidBillingManager(
                 )
                 .build()
             billingClient.queryProductDetailsAsync(params) { billingResult, result ->
-                Log.i(TAG) { "queryProductDetails($productId): ${resultCodeName(billingResult.responseCode)} debug=${billingResult.debugMessage} found=${result.productDetailsList?.map { it.productId }}" }
+                Log.i(TAG) { "queryProductDetails($productId): ${resultCodeName(billingResult.responseCode)} debug=${billingResult.debugMessage} found=${result.productDetailsList.map { it.productId }}" }
                 val details = result.productDetailsList.firstOrNull { it.productId == productId }
                 if (billingResult.responseCode == BillingClient.BillingResponseCode.OK && details != null) {
                     val flowParams = BillingFlowParams.newBuilder()
@@ -125,11 +125,11 @@ class AndroidBillingManager(
             billingClient.queryProductDetailsAsync(params) { billingResult, result ->
                 val prices = if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
                     result.productDetailsList
-                        ?.mapNotNull { details ->
+                        .mapNotNull { details ->
                             details.oneTimePurchaseOfferDetails?.formattedPrice
                                 ?.let { price -> details.productId to price }
                         }
-                        ?.toMap() ?: emptyMap()
+                        .toMap()
                 } else {
                     Log.i(TAG) { "tipPrices: ${resultCodeName(billingResult.responseCode)} debug=${billingResult.debugMessage}" }
                     emptyMap()
