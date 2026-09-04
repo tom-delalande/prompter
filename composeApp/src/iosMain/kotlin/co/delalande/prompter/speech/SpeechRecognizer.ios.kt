@@ -10,7 +10,7 @@ import kotlin.math.sqrt
 
 private const val TAG = "IOSSpeech"
 
-@OptIn(ExperimentalForeignApi::class)
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 class IOSSpeechRecognizer : SpeechRecognizer {
 
     private var recognizer: SFSpeechRecognizer? = null
