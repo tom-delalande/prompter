@@ -278,8 +278,8 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         recognitionJob = null
         audioCaptureJob?.cancel()
         audioCaptureJob = null
-        stopAudioCapture()
-        scope.launch {
+        scope.launch(Dispatchers.IO) {
+            stopAudioCapture()
             try {
                 recognizer?.stopRecognition()
                 Log.d(TAG) { "stopRecognition completed" }
@@ -291,9 +291,17 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
 
     override fun destroy() {
         Log.d(TAG) { "destroy called" }
-        stopListening()
-        try { recognizer?.close() } catch (_: Exception) {}
-        recognizer = null
-        scope.cancel()
+        isActive = false
+        recognitionJob?.cancel()
+        recognitionJob = null
+        audioCaptureJob?.cancel()
+        audioCaptureJob = null
+        scope.launch(Dispatchers.IO) {
+            stopAudioCapture()
+            try { recognizer?.stopRecognition() } catch (_: Exception) {}
+            try { recognizer?.close() } catch (_: Exception) {}
+            recognizer = null
+            scope.cancel()
+        }
     }
 }
