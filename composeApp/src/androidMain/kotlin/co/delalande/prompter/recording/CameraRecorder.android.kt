@@ -107,6 +107,11 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
     }
 
     override fun startRecording(filePath: String) {
+        if (activeRecording != null) {
+            listener?.onError("A recording is already in progress")
+            return
+        }
+
         val capture = videoCapture ?: run {
             listener?.onError("VideoCapture not initialized")
             return
