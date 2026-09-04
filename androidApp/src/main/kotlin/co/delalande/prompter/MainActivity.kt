@@ -13,6 +13,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import co.delalande.prompter.billing.AndroidBillingManager
 import co.delalande.prompter.data.PlatformStorage
@@ -22,6 +23,7 @@ import co.delalande.prompter.model.SaveResult
 import co.delalande.prompter.recording.AndroidCameraRecorder
 import co.delalande.prompter.speech.MLKitSpeechRecognizer
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -54,15 +56,18 @@ class MainActivity : ComponentActivity() {
                 buildInfo = "v${BuildConfig.VERSION_NAME} · ${BuildInfo.GIT_COMMIT}",
                 sharedText = sharedText.value,
                 onSaveToPhotos = { filePath, onDone ->
+                    val callback = onDone
                     lifecycleScope.launch {
-                        val result = withContext(Dispatchers.IO) {
+                        val result = withContext(Dispatchers.IO + NonCancellable) {
                             try {
                                 SaveResult(uri = saveVideoToMediaStore(filePath).toString())
                             } catch (e: Exception) {
                                 SaveResult(error = e.message ?: "Unknown error")
                             }
                         }
-                        onDone(result)
+                        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                            callback(result)
+                        }
                     }
                 },
                 onOpenVideo = { uriString -> openVideo(uriString) },
