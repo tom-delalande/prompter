@@ -65,7 +65,6 @@ fun App(
     var currentScreen by remember { mutableStateOf(Screen.ScriptList) }
     var editingScriptId by remember { mutableStateOf<String?>(null) }
     var teleprompterViewModel by remember { mutableStateOf<TeleprompterViewModel?>(null) }
-    var previousScreenBeforeTeleprompter by remember { mutableStateOf(Screen.ScriptList) }
     var saveResult by remember { mutableStateOf<SaveResult?>(null) }
     var isSavingVideo by remember { mutableStateOf(false) }
     var showSavingDialog by remember { mutableStateOf(false) }
@@ -88,7 +87,6 @@ fun App(
             cameraRecorder = recorder,
             startWordIndex = startWordIndex,
         )
-        previousScreenBeforeTeleprompter = currentScreen
         currentScreen = Screen.Teleprompter
     }
 
@@ -110,8 +108,7 @@ fun App(
                             editingScriptId = script.id
                             currentScreen = Screen.ScriptEditor
                         },
-                        onPlayScript = { script -> openTeleprompter(script, 0) },
-                        onOpenSettings = { currentScreen = Screen.Settings }
+                    onOpenSettings = { currentScreen = Screen.Settings }
                     )
                 }
 
@@ -152,10 +149,6 @@ fun App(
                             onBack = {
                                 teleprompterViewModel = null
                                 currentScreen = Screen.ScriptList
-                            },
-                            onSwipeBack = {
-                                teleprompterViewModel = null
-                                currentScreen = previousScreenBeforeTeleprompter
                             },
                             onSaveToPhotos = { filePath ->
                                 isSavingVideo = true

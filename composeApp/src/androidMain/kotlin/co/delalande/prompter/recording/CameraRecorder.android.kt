@@ -159,11 +159,6 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
         activeRecording = null
     }
 
-    override fun switchCamera() {
-        isFrontCamera = !isFrontCamera
-        bindCamera()
-    }
-
     override fun destroy() {
         activeRecording?.close()
         activeRecording = null

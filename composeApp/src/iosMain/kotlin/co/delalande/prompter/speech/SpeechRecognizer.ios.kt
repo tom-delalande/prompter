@@ -176,7 +176,7 @@ class IOSSpeechRecognizer : SpeechRecognizer {
         else -> false
     }
 
-    override fun stopListening() {
+    override fun destroy() {
         recognitionTask?.cancel()
         recognitionTask = null
         recognitionRequest = null
@@ -189,10 +189,6 @@ class IOSSpeechRecognizer : SpeechRecognizer {
         hasReportedAudioLevel = false
         smoothedLevel = 0f
         listener?.onAudioLevelChanged(0f)
-    }
-
-    override fun destroy() {
-        stopListening()
         recognizer = null
     }
 }

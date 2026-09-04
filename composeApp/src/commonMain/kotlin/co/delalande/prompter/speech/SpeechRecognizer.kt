@@ -11,6 +11,5 @@ interface SpeechListener {
 interface SpeechRecognizer {
     fun setListener(listener: SpeechListener?)
     fun startListening()
-    fun stopListening()
     fun destroy()
 }

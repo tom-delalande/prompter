@@ -55,17 +55,18 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         isActive = true
         Log.d(TAG) { "--- startListening ---" }
 
-        val rec = createRecognizer() ?: return
+        recognizer = createRecognizer() ?: return
         val audioSource = startAudioCapture()
 
         if (audioSource == null) {
+            recognizer = null
             isActive = false
             return
         }
 
         recognitionJob = scope.launch(Dispatchers.Default) {
             try {
-                setupAndRecognize(rec, audioSource)
+                setupAndRecognize(recognizer!!, audioSource)
             } catch (e: Exception) {
                 Log.e(TAG, throwable = e) { "Setup failed" }
                 if (isActive) {
@@ -268,24 +269,6 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
         } catch (e: Exception) {
             Log.e(TAG, throwable = e) { "Recognition flow threw" }
             if (isActive) listener?.onError(e.message ?: "Recognition error")
-        }
-    }
-
-    override fun stopListening() {
-        Log.d(TAG) { "stopListening called" }
-        isActive = false
-        recognitionJob?.cancel()
-        recognitionJob = null
-        audioCaptureJob?.cancel()
-        audioCaptureJob = null
-        scope.launch(Dispatchers.IO) {
-            stopAudioCapture()
-            try {
-                recognizer?.stopRecognition()
-                Log.d(TAG) { "stopRecognition completed" }
-            } catch (e: Exception) {
-                Log.e(TAG, throwable = e) { "stopRecognition threw" }
-            }
         }
     }
 

@@ -67,7 +67,6 @@ fun TeleprompterScreen(
     defaultCameraMode: CameraMode,
     textDisplayStyle: TextDisplayStyle,
     onBack: () -> Unit,
-    onSwipeBack: () -> Unit = onBack,
     onSaveToPhotos: (String) -> Unit,
     onSaveStateChanged: (Boolean) -> Unit = {},
 ) {
@@ -392,7 +391,6 @@ private fun TeleprompterContent(
                     top = if (isLandscape) 44.dp else statusBarTop + 60.dp
                 )
         ) {
-            val textAreaDp = maxHeight
             val words = viewModel.script.words
             val lineBreakBefore = viewModel.script.lineBreakBefore
             val currentIndex = viewModel.currentWordIndex

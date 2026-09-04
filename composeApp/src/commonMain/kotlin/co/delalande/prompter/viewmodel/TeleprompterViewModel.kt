@@ -21,8 +21,6 @@ class TeleprompterViewModel(
     var currentWordIndex by mutableStateOf(0)
     var isRecording by mutableStateOf(false)
     var isPlaying by mutableStateOf(false)
-    var scrollOffset by mutableStateOf(0f)
-    var isFrontCamera by mutableStateOf(true)
     var recordingError by mutableStateOf<String?>(null)
     var lastRecordedFile by mutableStateOf<String?>(null)
     var isProcessing by mutableStateOf(false)
@@ -44,12 +42,6 @@ class TeleprompterViewModel(
         override fun onError(error: String) {
             Log.e(TAG) { "Speech error: $error" }
             recordingError = error
-        }
-
-        override fun onVoiceActivityChanged(isActive: Boolean) {
-            if (!isActive) {
-                pendingWords.clear()
-            }
         }
 
         override fun onAudioLevelChanged(level: Float) {
@@ -171,11 +163,6 @@ class TeleprompterViewModel(
         cameraRecorder.stopRecording()
     }
 
-    fun switchCamera() {
-        isFrontCamera = !isFrontCamera
-        cameraRecorder.switchCamera()
-    }
-
     private fun processSpeech(text: String) {
         if (currentWordIndex >= script.wordCount()) return
 
@@ -209,7 +196,6 @@ class TeleprompterViewModel(
             if (result.isMatching && result.newWordIndex > currentWordIndex) {
                 currentWordIndex = minOf(result.newWordIndex, script.wordCount())
                 Log.v(TAG) { "Speech advanced to word $currentWordIndex" }
-                updateScrollOffset()
                 val consumed = result.consumedWords.coerceAtMost(subsetOfPendingWords.size)
                 repeat(i + consumed) { pendingWords.removeFirst() }
                 return
@@ -217,15 +203,9 @@ class TeleprompterViewModel(
         }
     }
 
-    private fun updateScrollOffset() {
-        if (script.wordCount() == 0) return
-        scrollOffset = currentWordIndex.toFloat() / script.wordCount().toFloat()
-    }
-
     fun seekTo(index: Int) {
         currentWordIndex = index.coerceIn(0, script.wordCount())
         Log.v(TAG) { "seekTo $currentWordIndex" }
-        updateScrollOffset()
         pendingWords.clear()
         lastPartialTokens = emptyList()
     }

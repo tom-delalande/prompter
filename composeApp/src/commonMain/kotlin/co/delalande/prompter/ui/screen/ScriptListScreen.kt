@@ -23,7 +23,6 @@ fun ScriptListScreen(
     repository: ScriptRepository,
     onNewScript: () -> Unit,
     onEditScript: (Script) -> Unit,
-    onPlayScript: (Script) -> Unit,
     onOpenSettings: () -> Unit
 ) {
     var scripts by remember { mutableStateOf(repository.loadAll()) }

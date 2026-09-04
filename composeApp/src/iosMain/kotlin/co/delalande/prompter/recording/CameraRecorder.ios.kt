@@ -174,21 +174,6 @@ class IOSCameraRecorder : CameraRecorder {
         movieOutput?.stopRecording()
     }
 
-    override fun switchCamera() {
-        isFrontCamera = !isFrontCamera
-        val session = captureSession ?: return
-        session.beginConfiguration()
-        session.inputs.forEach { input ->
-            val deviceInput = input as? AVCaptureDeviceInput ?: return@forEach
-            if (deviceInput.device.hasMediaType(AVMediaTypeVideo)) {
-                session.removeInput(deviceInput)
-            }
-        }
-        configureCamera()
-        session.commitConfiguration()
-        Log.i(TAG) { "Switched to ${if (isFrontCamera) "front" else "back"} camera" }
-    }
-
     override fun destroy() {
         stopRecording()
         captureSession?.stopRunning()
