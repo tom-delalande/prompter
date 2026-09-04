@@ -292,6 +292,7 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
     override fun destroy() {
         Log.d(TAG) { "destroy called" }
         isActive = false
+        listener = null
         recognitionJob?.cancel()
         recognitionJob = null
         audioCaptureJob?.cancel()

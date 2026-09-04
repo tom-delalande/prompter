@@ -159,8 +159,12 @@ class AndroidCameraRecorder(private val context: Context) : CameraRecorder {
 
     override fun destroy() {
         activeRecording?.close()
+        activeRecording = null
         cameraProvider?.unbindAll()
         cameraProvider = null
+        lifecycleOwner = null
+        listener = null
+        mainHandler.removeCallbacksAndMessages(null)
         executor.shutdown()
     }
 }
