@@ -602,12 +602,17 @@ private fun VideoFrameRate.label(): String = when (this) {
 private fun fontFamilyLabel(name: String): String =
     if (name == "Default") "System Default" else name
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ColorSwatchRow(
     selected: String,
     onSelect: (String) -> Unit
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
         ColorSwatches.forEach { hex ->
             val isSelected = hex.equals(selected, ignoreCase = true)
             Box(
