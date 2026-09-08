@@ -1,6 +1,7 @@
 package co.delalande.prompter.data
 
 import co.delalande.prompter.model.Settings
+import co.delalande.prompter.speech.DEFAULT_SPEECH_LANGUAGE_TAG
 
 class SettingsRepository(storage: PlatformStorage) {
     private val json = JsonStorage(storage)
@@ -8,7 +9,14 @@ class SettingsRepository(storage: PlatformStorage) {
 
     fun load(): Settings {
         if (cached == null) {
-            cached = json.loadOr(SETTINGS_FILE, Settings())
+            val loaded = json.loadOr(SETTINGS_FILE, Settings())
+            cached = if (loaded.preferredSpeechLanguageTag == null) {
+                loaded.copy(preferredSpeechLanguageTag = DEFAULT_SPEECH_LANGUAGE_TAG).also {
+                    json.save(SETTINGS_FILE, it)
+                }
+            } else {
+                loaded
+            }
         }
         return cached!!
     }

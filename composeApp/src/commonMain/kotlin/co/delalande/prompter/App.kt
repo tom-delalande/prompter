@@ -28,8 +28,11 @@ import co.delalande.prompter.model.SaveResult
 import co.delalande.prompter.model.Script
 import co.delalande.prompter.recording.CameraRecorder
 import co.delalande.prompter.speech.SpeechRecognizer
+import co.delalande.prompter.speech.SpeechLanguageAvailability
+import co.delalande.prompter.speech.SpeechLanguageManager
 import co.delalande.prompter.ui.screen.ScriptEditorScreen
 import co.delalande.prompter.ui.screen.ScriptListScreen
+import co.delalande.prompter.ui.screen.SpeechLanguagesScreen
 import co.delalande.prompter.ui.screen.SettingsScreen
 import co.delalande.prompter.ui.screen.TeleprompterScreen
 import co.delalande.prompter.ui.theme.TeleprompterTheme
@@ -37,7 +40,7 @@ import co.delalande.prompter.viewmodel.TeleprompterViewModel
 import kotlinx.coroutines.delay
 
 enum class Screen {
-    ScriptList, ScriptEditor, Teleprompter, Settings
+    ScriptList, ScriptEditor, Teleprompter, Settings, SpeechLanguages
 }
 
 private const val SAVING_DIALOG_GRACE_MS = 600L
@@ -48,7 +51,8 @@ private const val TAG = "App"
 fun App(
     platformStorage: PlatformStorage,
     isDebug: Boolean,
-    speechRecognizerFactory: () -> SpeechRecognizer,
+    speechRecognizerFactory: (String?) -> SpeechRecognizer,
+    speechLanguageManagerFactory: () -> SpeechLanguageManager,
     cameraRecorderFactory: () -> CameraRecorder,
     billingManagerFactory: () -> BillingManager,
     buildInfo: String,
@@ -61,6 +65,22 @@ fun App(
     val settingsRepository = remember { SettingsRepository(platformStorage) }
     val debugRepository = remember { DebugRepository(platformStorage) }
     val billingManager = remember { billingManagerFactory() }
+    val speechLanguageManager = remember { speechLanguageManagerFactory() }
+    var cachedSpeechLanguages by remember {
+        mutableStateOf<List<SpeechLanguageAvailability>?>(null)
+    }
+
+    val refreshSpeechLanguages: suspend () -> Unit = {
+        try {
+            cachedSpeechLanguages = speechLanguageManager.getLanguages()
+        } catch (e: Exception) {
+            Log.e(TAG, throwable = e) { "Failed to refresh speech languages" }
+        }
+    }
+
+    LaunchedEffect(speechLanguageManager) {
+        refreshSpeechLanguages()
+    }
 
     var currentScreen by remember { mutableStateOf(Screen.ScriptList) }
     var editingScriptId by remember { mutableStateOf<String?>(null) }
@@ -83,7 +103,7 @@ fun App(
         recorder.configure(currentSettings.videoResolution, currentSettings.videoFrameRate)
         teleprompterViewModel = TeleprompterViewModel(
             script = script,
-            speechRecognizer = speechRecognizerFactory(),
+            speechRecognizer = speechRecognizerFactory(currentSettings.preferredSpeechLanguageTag),
             cameraRecorder = recorder,
             startWordIndex = startWordIndex,
         )
@@ -134,7 +154,20 @@ fun App(
                         isDebug = isDebug,
                         buildInfo = buildInfo,
                         onBack = { currentScreen = Screen.ScriptList },
+                        speechLanguageManager = speechLanguageManager,
+                        speechLanguages = cachedSpeechLanguages,
+                        onRefreshSpeechLanguages = refreshSpeechLanguages,
+                        onManageSpeechLanguages = { currentScreen = Screen.SpeechLanguages },
                         onComposeEmail = onComposeEmail
+                    )
+                }
+
+                Screen.SpeechLanguages -> {
+                    SpeechLanguagesScreen(
+                        manager = speechLanguageManager,
+                        languages = cachedSpeechLanguages,
+                        onRefreshLanguages = refreshSpeechLanguages,
+                        onBack = { currentScreen = Screen.Settings }
                     )
                 }
 

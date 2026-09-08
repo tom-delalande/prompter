@@ -8,6 +8,7 @@ import co.delalande.prompter.log.Log
 import co.delalande.prompter.model.SaveResult
 import co.delalande.prompter.recording.IOSCameraRecorder
 import co.delalande.prompter.speech.IOSSpeechRecognizer
+import co.delalande.prompter.speech.IOSSpeechLanguageManager
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSBundle
 import platform.Foundation.NSFileManager
@@ -29,7 +30,8 @@ fun MainViewController(): UIViewController {
         App(
             platformStorage = PlatformStorage(),
             isDebug = false,
-            speechRecognizerFactory = { IOSSpeechRecognizer() },
+            speechRecognizerFactory = { localeTag -> IOSSpeechRecognizer(localeTag) },
+            speechLanguageManagerFactory = { IOSSpeechLanguageManager() },
             cameraRecorderFactory = { IOSCameraRecorder() },
             billingManagerFactory = { IOSBillingManager() },
             buildInfo = buildInfo,

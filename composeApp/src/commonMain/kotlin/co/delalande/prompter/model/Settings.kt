@@ -31,5 +31,7 @@ data class Settings(
     val defaultCameraMode: CameraMode = CameraMode.PictureInPicture,
     val textDisplayStyle: TextDisplayStyle = TextDisplayStyle(),
     val videoResolution: VideoResolution = VideoResolution.FHD_1080,
-    val videoFrameRate: VideoFrameRate = VideoFrameRate.FPS_30
+    val videoFrameRate: VideoFrameRate = VideoFrameRate.FPS_30,
+    /** Nullable only so settings written by older versions can be migrated safely. */
+    val preferredSpeechLanguageTag: String? = "en-US",
 )

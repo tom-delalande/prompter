@@ -11,7 +11,9 @@ import kotlin.math.sqrt
 private const val TAG = "IOSSpeech"
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
-class IOSSpeechRecognizer : SpeechRecognizer {
+class IOSSpeechRecognizer(
+    private val preferredLocaleTag: String? = null,
+) : SpeechRecognizer {
 
     private var recognizer: SFSpeechRecognizer? = null
     private var recognitionTask: SFSpeechRecognitionTask? = null
@@ -28,12 +30,16 @@ class IOSSpeechRecognizer : SpeechRecognizer {
     init {
         SFSpeechRecognizer.requestAuthorization { status ->
             Log.i(TAG) { "Speech recognition authorization: $status" }
-            recognizer = SFSpeechRecognizer()
+            recognizer = createRecognizer()
             if (isListening) {
                 startRecognitionTask()
             }
         }
     }
+
+    private fun createRecognizer(): SFSpeechRecognizer = preferredLocaleTag
+        ?.let { SFSpeechRecognizer(locale = NSLocale(it)) }
+        ?: SFSpeechRecognizer()
 
     override fun setListener(listener: SpeechListener?) {
         this.listener = listener

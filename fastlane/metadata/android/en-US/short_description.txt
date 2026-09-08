@@ -1,1 +1,1 @@
-Free teleprompter with voice-detected auto-scroll and in-app camera recording.
+Teleprompter with Camera, Voice Scroll & Customizable Text

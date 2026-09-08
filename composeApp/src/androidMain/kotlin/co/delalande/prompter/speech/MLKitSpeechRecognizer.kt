@@ -26,7 +26,10 @@ import java.io.IOException
 import java.util.Locale
 import kotlin.math.sqrt
 
-class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
+class MLKitSpeechRecognizer(
+    context: Context,
+    private val preferredLocaleTag: String? = null,
+) : SpeechRecognizer {
 
     companion object {
         private const val TAG = "MLKitSpeech"
@@ -80,7 +83,9 @@ class MLKitSpeechRecognizer(context: Context) : SpeechRecognizer {
     private fun createRecognizer(): MLKitInternalRecognizer? {
         return try {
             val options = SpeechRecognizerOptions.Builder().apply {
-                locale = Locale.US
+                locale = preferredLocaleTag?.let(Locale::forLanguageTag)
+                    ?.takeUnless { it.language.isBlank() }
+                    ?: Locale.getDefault()
                 preferredMode = SpeechRecognizerOptions.Mode.MODE_BASIC
             }.build()
             Log.d(TAG) { "Creating recognizer..." }

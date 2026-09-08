@@ -32,10 +32,16 @@ import co.delalande.prompter.model.CameraMode
 import co.delalande.prompter.model.Script
 import co.delalande.prompter.model.VideoFrameRate
 import co.delalande.prompter.model.VideoResolution
+import co.delalande.prompter.speech.SpeechLanguageAvailability
+import co.delalande.prompter.speech.SpeechLanguageManager
+import co.delalande.prompter.speech.SpeechLanguageStatus
+import co.delalande.prompter.speech.SpeechModelDownload
+import co.delalande.prompter.speech.speechLanguageLabel
 import co.delalande.prompter.ui.FontFamilyOptions
 import co.delalande.prompter.ui.TextDisplaySample
 import co.delalande.prompter.ui.parseHexColor
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 private val ColorSwatches = listOf(
     "#FFFFFF", "#CCCCCC", "#9E9E9E", "#000000",
@@ -56,6 +62,10 @@ fun SettingsScreen(
     isDebug: Boolean,
     buildInfo: String,
     onBack: () -> Unit,
+    speechLanguageManager: SpeechLanguageManager,
+    speechLanguages: List<SpeechLanguageAvailability>?,
+    onRefreshSpeechLanguages: suspend () -> Unit,
+    onManageSpeechLanguages: () -> Unit,
     onComposeEmail: (String) -> Unit
 ) {
     val initial = remember { settingsRepository.load() }
@@ -65,6 +75,8 @@ fun SettingsScreen(
     var showFeedbackDialog by remember { mutableStateOf(false) }
     var isPurchasing by remember { mutableStateOf(false) }
     var dialogMessage by remember { mutableStateOf<String?>(null) }
+    var modelDownload by remember { mutableStateOf<SpeechModelDownload?>(null) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(billingManager) {
         billingManager.connect()
@@ -128,6 +140,30 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            SpeechRecognitionSection(
+                languages = speechLanguages,
+                selectedLocaleTag = settings.preferredSpeechLanguageTag,
+                download = modelDownload,
+                onSelect = { localeTag ->
+                    settings = settings.copy(preferredSpeechLanguageTag = localeTag)
+                    settingsRepository.save(settings)
+                },
+                onDownloadBaseModel = {
+                    scope.launch {
+                        speechLanguageManager.download("en-US").collect { state ->
+                            modelDownload = state
+                            if (state is SpeechModelDownload.Completed) onRefreshSpeechLanguages()
+                        }
+                    }
+                },
+                onManageLanguages = {
+                    settingsRepository.save(settings)
+                    onManageSpeechLanguages()
+                }
+            )
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -387,6 +423,135 @@ fun SettingsScreen(
             onCancel = { showFeedbackDialog = false }
         )
     }
+}
+
+@Composable
+private fun SpeechRecognitionSection(
+    languages: List<SpeechLanguageAvailability>?,
+    selectedLocaleTag: String?,
+    download: SpeechModelDownload?,
+    onSelect: (String) -> Unit,
+    onDownloadBaseModel: () -> Unit,
+    onManageLanguages: () -> Unit,
+) {
+    Text("Speech Recognition", style = MaterialTheme.typography.titleMedium)
+    Spacer(modifier = Modifier.height(8.dp))
+
+    if (languages == null) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+            Spacer(modifier = Modifier.width(12.dp))
+            Text("Checking on-device speech recognition…")
+        }
+        return
+    }
+
+    val installed = languages.filter { it.status == SpeechLanguageStatus.Installed }
+    if (installed.isEmpty()) {
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer
+            )
+        ) {
+            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                Text(
+                    "On-device speech recognition is not downloaded.",
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                when (download) {
+                    is SpeechModelDownload.Started -> DownloadProgressText(0L, download.totalBytes)
+                    is SpeechModelDownload.Progress -> DownloadProgressText(
+                        download.bytesDownloaded,
+                        download.totalBytes,
+                    )
+                    is SpeechModelDownload.Completed -> DownloadProgressText(1L, 1L, completed = true)
+                    is SpeechModelDownload.Failed -> Text(
+                        download.message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    else -> Button(onClick = onDownloadBaseModel) {
+                        Text("Download speech recognition")
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    Text("Selected Language", style = MaterialTheme.typography.titleSmall)
+    Spacer(modifier = Modifier.height(4.dp))
+    SpeechLanguageDropdown(
+        current = selectedLocaleTag,
+        installed = installed,
+        onChange = onSelect
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    OutlinedButton(onClick = onManageLanguages) {
+        Text("Manage languages")
+    }
+}
+
+@Composable
+private fun SpeechLanguageDropdown(
+    current: String?,
+    installed: List<SpeechLanguageAvailability>,
+    onChange: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(speechLanguageLabel(current))
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            installed.forEach { item ->
+                DropdownMenuItem(
+                    text = { Text(item.language.displayName) },
+                    onClick = {
+                        onChange(item.language.localeTag)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun DownloadProgressText(
+    bytesDownloaded: Long,
+    totalBytes: Long,
+    completed: Boolean = false,
+) {
+    val progress = if (totalBytes > 0L) {
+        (bytesDownloaded.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    Column {
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            when {
+                completed -> "Download complete"
+                bytesDownloaded == 0L -> "Starting download…"
+                else -> "Downloaded ${formatDownloadBytes(bytesDownloaded)} of ${formatDownloadBytes(totalBytes)}"
+            },
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+internal fun formatDownloadBytes(bytes: Long): String = when {
+    bytes >= 1_000_000 -> "${bytes / 1_000_000} MB"
+    bytes >= 1_000 -> "${bytes / 1_000} KB"
+    else -> "$bytes bytes"
 }
 
 @Composable

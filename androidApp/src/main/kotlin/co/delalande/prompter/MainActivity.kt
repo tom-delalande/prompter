@@ -22,6 +22,7 @@ import co.delalande.prompter.log.initLogging
 import co.delalande.prompter.model.SaveResult
 import co.delalande.prompter.recording.AndroidCameraRecorder
 import co.delalande.prompter.speech.MLKitSpeechRecognizer
+import co.delalande.prompter.speech.AndroidSpeechLanguageManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
@@ -48,7 +49,10 @@ class MainActivity : ComponentActivity() {
             App(
                 platformStorage = PlatformStorage(this@MainActivity),
                 isDebug = BuildConfig.DEBUG,
-                speechRecognizerFactory = { MLKitSpeechRecognizer(this@MainActivity) },
+                speechRecognizerFactory = { localeTag ->
+                    MLKitSpeechRecognizer(this@MainActivity, localeTag)
+                },
+                speechLanguageManagerFactory = { AndroidSpeechLanguageManager() },
                 cameraRecorderFactory = { AndroidCameraRecorder(this@MainActivity) },
                 billingManagerFactory = {
                     AndroidBillingManager(this@MainActivity)
