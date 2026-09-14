@@ -37,7 +37,7 @@ fun MainViewController(): UIViewController {
             buildInfo = buildInfo,
             onSaveToPhotos = { filePath, onResult -> saveVideoToPhotoLibrary(filePath, onResult) },
             onOpenVideo = { openInPhotos() },
-            onComposeEmail = { subject -> composeEmail(subject) }
+            onComposeEmail = { subject, isBugReport -> composeEmail(subject, isBugReport) }
         )
     }
 }
@@ -96,13 +96,32 @@ private fun openInPhotos() {
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private fun composeEmail(subject: String) {
+private fun composeEmail(subject: String, isBugReport: Boolean) {
     val components = NSURLComponents()
     components.scheme = "mailto"
     components.path = FEEDBACK_EMAIL_ADDRESS
-    components.queryItems = listOf(NSURLQueryItem(name = "subject", value = subject))
+    components.queryItems = listOf(
+        NSURLQueryItem(name = "subject", value = subject)
+    ) + if (isBugReport) {
+        listOf(NSURLQueryItem(name = "body", value = buildEmailBody()))
+    } else {
+        emptyList()
+    }
     val url = components.URL ?: return
     UIApplication.sharedApplication.openURL(url, options = emptyMap<Any?, Any?>(), completionHandler = null)
+}
+
+private fun buildEmailBody(): String {
+    val versionName =
+        NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as? String ?: "1.0"
+    val device = UIDevice.currentDevice
+    return buildString {
+        appendLine("Prompter v$versionName (${BuildInfo.GIT_COMMIT})")
+        appendLine("Device: ${device.model}")
+        appendLine("${device.systemName} ${device.systemVersion}")
+        appendLine()
+        appendLine("Describe the issue below:")
+    }
 }
 
 @OptIn(ExperimentalForeignApi::class)

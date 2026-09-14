@@ -75,7 +75,7 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 onOpenVideo = { uriString -> openVideo(uriString) },
-                onComposeEmail = { subject -> composeEmail(subject) }
+                onComposeEmail = { subject, isBugReport -> composeEmail(subject, isBugReport) }
             )
         }
     }
@@ -103,17 +103,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun composeEmail(subject: String) {
+    private fun composeEmail(subject: String, isBugReport: Boolean) {
         try {
             val intent = Intent(Intent.ACTION_SENDTO).apply {
                 data = Uri.parse("mailto:")
                 putExtra(Intent.EXTRA_EMAIL, arrayOf(FEEDBACK_EMAIL_ADDRESS))
                 putExtra(Intent.EXTRA_SUBJECT, subject)
+                if (isBugReport) {
+                    putExtra(Intent.EXTRA_TEXT, buildEmailBody())
+                }
             }
             startActivity(intent)
         } catch (e: Exception) {
             Toast.makeText(this, "Could not open email app", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun buildEmailBody(): String = buildString {
+        appendLine("Prompter v${BuildConfig.VERSION_NAME} (${BuildInfo.GIT_COMMIT})")
+        appendLine("Device: ${Build.MANUFACTURER} ${Build.MODEL}")
+        append("Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+        appendLine()
+        appendLine()
+        appendLine("Describe the issue below:")
     }
 
     private fun saveVideoToMediaStore(filePath: String): Uri {

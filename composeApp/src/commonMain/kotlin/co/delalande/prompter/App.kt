@@ -59,7 +59,7 @@ fun App(
     sharedText: String? = null,
     onSaveToPhotos: (String, (SaveResult) -> Unit) -> Unit,
     onOpenVideo: (String) -> Unit,
-    onComposeEmail: (String) -> Unit
+    onComposeEmail: (String, Boolean) -> Unit
 ) {
     val repository = remember { ScriptRepository(platformStorage) }
     val settingsRepository = remember { SettingsRepository(platformStorage) }

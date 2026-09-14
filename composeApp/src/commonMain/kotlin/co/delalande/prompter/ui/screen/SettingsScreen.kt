@@ -66,7 +66,7 @@ fun SettingsScreen(
     speechLanguages: List<SpeechLanguageAvailability>?,
     onRefreshSpeechLanguages: suspend () -> Unit,
     onManageSpeechLanguages: () -> Unit,
-    onComposeEmail: (String) -> Unit
+    onComposeEmail: (String, Boolean) -> Unit
 ) {
     val initial = remember { settingsRepository.load() }
     var settings by remember { mutableStateOf(initial) }
@@ -418,7 +418,7 @@ fun SettingsScreen(
         FeedbackDialog(
             onSelect = { category ->
                 showFeedbackDialog = false
-                onComposeEmail(category.emailSubject)
+                onComposeEmail(category.emailSubject, category == FeedbackCategory.BugReport)
             },
             onCancel = { showFeedbackDialog = false }
         )
