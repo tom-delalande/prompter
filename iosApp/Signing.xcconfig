@@ -1,0 +1,4 @@
+// LocalSigning.xcconfig is generated from the ignored root local.properties.
+PROMPTER_DEVELOPMENT_TEAM =
+#include? "LocalSigning.xcconfig"
+DEVELOPMENT_TEAM = $(PROMPTER_DEVELOPMENT_TEAM)

@@ -1,0 +1,43 @@
+# Gradle
+.gradle/
+build/
+local.properties
+
+# IDE
+.idea/
+*.iml
+*.iws
+.DS_Store
+
+# Kotlin
+*.class
+*.kotlin_module
+.kotlin/
+
+# Android
+androidApp/build/
+androidApp/keystore.properties
+androidApp/keystore/
+
+# iOS
+iosApp/Pods/
+iosApp/*.xcworkspace
+**/xcuserdata/
+iosApp/*.xcodeproj/project.xcworkspace/xcshareddata/
+iosApp/DerivedData/
+iosApp/LocalSigning.xcconfig
+
+# Misc
+*.log
+*.tmp
+.cache/
+*~lock~
+
+# Fastlane
+fastlane/play-store-key.json
+fastlane/metadata/android/en-US/changelogs
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+fastlane/README.md

@@ -1,0 +1,2 @@
+- Sometimes it's too eager to jump ahead
+- Lines are a bit short (single words will be on their own line) and it doesn't take up full width

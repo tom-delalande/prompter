@@ -1,0 +1,130 @@
+package co.delalande.prompter
+
+import androidx.compose.ui.window.ComposeUIViewController
+import co.delalande.prompter.billing.IOSBillingManager
+import co.delalande.prompter.data.PlatformStorage
+import co.delalande.prompter.feedback.FEEDBACK_EMAIL_ADDRESS
+import co.delalande.prompter.log.Log
+import co.delalande.prompter.model.SaveResult
+import co.delalande.prompter.recording.IOSCameraRecorder
+import co.delalande.prompter.speech.IOSSpeechRecognizer
+import co.delalande.prompter.speech.IOSSpeechLanguageManager
+import kotlinx.cinterop.ExperimentalForeignApi
+import platform.Foundation.NSBundle
+import platform.Foundation.NSFileManager
+import platform.Foundation.NSURL
+import platform.Foundation.NSURLComponents
+import platform.Foundation.NSURLQueryItem
+import platform.Photos.*
+import platform.UIKit.*
+import platform.darwin.dispatch_async
+import platform.darwin.dispatch_get_main_queue
+
+private const val TAG = "iOSSave"
+
+fun MainViewController(): UIViewController {
+    val versionName =
+        NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as? String ?: "1.0"
+    val buildInfo = "v$versionName · ${BuildInfo.GIT_COMMIT}"
+    return ComposeUIViewController {
+        App(
+            platformStorage = PlatformStorage(),
+            isDebug = false,
+            speechRecognizerFactory = { localeTag -> IOSSpeechRecognizer(localeTag) },
+            speechLanguageManagerFactory = { IOSSpeechLanguageManager() },
+            cameraRecorderFactory = { IOSCameraRecorder() },
+            billingManagerFactory = { IOSBillingManager() },
+            buildInfo = buildInfo,
+            onSaveToPhotos = { filePath, onResult -> saveVideoToPhotoLibrary(filePath, onResult) },
+            onOpenVideo = { openInPhotos() },
+            onComposeEmail = { subject, isBugReport -> composeEmail(subject, isBugReport) }
+        )
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun saveVideoToPhotoLibrary(filePath: String, onResult: (SaveResult) -> Unit) {
+    val url = NSURL.fileURLWithPath(filePath)
+
+    fun deleteTempFile() {
+        NSFileManager.defaultManager.removeItemAtPath(filePath, error = null)
+    }
+
+    fun performSave() {
+        PHPhotoLibrary.sharedPhotoLibrary().performChanges(
+            changeBlock = { PHAssetCreationRequest.creationRequestForAssetFromVideoAtFileURL(url) }
+        ) { success, error ->
+            runOnMain {
+                if (success) {
+                    Log.i(TAG) { "Saved video to Photos: $filePath" }
+                    deleteTempFile()
+                    onResult(SaveResult(uri = filePath))
+                } else {
+                    Log.e(TAG) { "Failed to save video: ${error?.localizedDescription}" }
+                    deleteTempFile()
+                    onResult(SaveResult(error = error?.localizedDescription ?: "Unknown error"))
+                }
+            }
+        }
+    }
+
+    when (PHPhotoLibrary.authorizationStatusForAccessLevel(PHAccessLevelAddOnly)) {
+        PHAuthorizationStatusAuthorized, PHAuthorizationStatusLimited -> performSave()
+        PHAuthorizationStatusNotDetermined -> {
+            PHPhotoLibrary.requestAuthorizationForAccessLevel(PHAccessLevelAddOnly) { status ->
+                runOnMain {
+                    if (status == PHAuthorizationStatusAuthorized || status == PHAuthorizationStatusLimited) {
+                        performSave()
+                    } else {
+                        Log.w(TAG) { "Photo library permission denied" }
+                        onResult(SaveResult(error = "Photo library access denied"))
+                    }
+                }
+            }
+        }
+        else -> {
+            Log.w(TAG) { "Photo library access denied" }
+            onResult(SaveResult(error = "Photo library access denied"))
+        }
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun openInPhotos() {
+    val url = NSURL.URLWithString("photos-redirect://") ?: return
+    UIApplication.sharedApplication.openURL(url, options = emptyMap<Any?, Any?>(), completionHandler = null)
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun composeEmail(subject: String, isBugReport: Boolean) {
+    val components = NSURLComponents()
+    components.scheme = "mailto"
+    components.path = FEEDBACK_EMAIL_ADDRESS
+    components.queryItems = listOf(
+        NSURLQueryItem(name = "subject", value = subject)
+    ) + if (isBugReport) {
+        listOf(NSURLQueryItem(name = "body", value = buildEmailBody()))
+    } else {
+        emptyList()
+    }
+    val url = components.URL ?: return
+    UIApplication.sharedApplication.openURL(url, options = emptyMap<Any?, Any?>(), completionHandler = null)
+}
+
+private fun buildEmailBody(): String {
+    val versionName =
+        NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as? String ?: "1.0"
+    val device = UIDevice.currentDevice
+    return buildString {
+        appendLine("Prompter v$versionName (${BuildInfo.GIT_COMMIT})")
+        appendLine("Device: ${device.model}")
+        appendLine("${device.systemName} ${device.systemVersion}")
+        appendLine()
+        appendLine("Describe the issue below:")
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun runOnMain(block: () -> Unit) {
+    dispatch_async(dispatch_get_main_queue()) { block() }
+}

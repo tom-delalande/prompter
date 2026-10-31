@@ -1,0 +1,907 @@
+package co.delalande.prompter.ui.screen
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import co.delalande.prompter.billing.BillingManager
+import co.delalande.prompter.billing.LARGE_TIP_PRODUCT_ID
+import co.delalande.prompter.billing.SMALL_TIP_PRODUCT_ID
+import co.delalande.prompter.data.DebugRepository
+import co.delalande.prompter.data.ScriptRepository
+import co.delalande.prompter.data.SettingsRepository
+import co.delalande.prompter.feedback.FeedbackCategory
+import co.delalande.prompter.log.Log
+import co.delalande.prompter.model.CameraMode
+import co.delalande.prompter.model.Script
+import co.delalande.prompter.model.VideoFrameRate
+import co.delalande.prompter.model.VideoResolution
+import co.delalande.prompter.speech.SpeechLanguageAvailability
+import co.delalande.prompter.speech.SpeechLanguageManager
+import co.delalande.prompter.speech.SpeechLanguageStatus
+import co.delalande.prompter.speech.SpeechModelDownload
+import co.delalande.prompter.speech.speechLanguageLabel
+import co.delalande.prompter.ui.FontFamilyOptions
+import co.delalande.prompter.ui.TextDisplaySample
+import co.delalande.prompter.ui.parseHexColor
+import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
+
+private val ColorSwatches = listOf(
+    "#FFFFFF", "#CCCCCC", "#9E9E9E", "#000000",
+    "#FF5252", "#FF9800", "#FFEB3B", "#4CAF50",
+    "#2196F3", "#9C27B0", "#E91E63", "#00BCD4"
+)
+
+private const val DEBUG_SCRIPT_ID = "debug-large"
+private const val TAG = "Settings"
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    settingsRepository: SettingsRepository,
+    scriptRepository: ScriptRepository,
+    debugRepository: DebugRepository,
+    billingManager: BillingManager,
+    isDebug: Boolean,
+    buildInfo: String,
+    onBack: () -> Unit,
+    speechLanguageManager: SpeechLanguageManager,
+    speechLanguages: List<SpeechLanguageAvailability>?,
+    onRefreshSpeechLanguages: suspend () -> Unit,
+    onManageSpeechLanguages: () -> Unit,
+    onComposeEmail: (String, Boolean) -> Unit
+) {
+    val initial = remember { settingsRepository.load() }
+    var settings by remember { mutableStateOf(initial) }
+    var tipPrices by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var showTipDialog by remember { mutableStateOf(false) }
+    var showFeedbackDialog by remember { mutableStateOf(false) }
+    var isPurchasing by remember { mutableStateOf(false) }
+    var dialogMessage by remember { mutableStateOf<String?>(null) }
+    var modelDownload by remember { mutableStateOf<SpeechModelDownload?>(null) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(billingManager) {
+        billingManager.connect()
+        billingManager.tipPrices { prices -> tipPrices = prices }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") },
+                navigationIcon = {
+                    TextButton(onClick = {
+                        settingsRepository.save(settings)
+                        onBack()
+                    }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        dialogMessage = null
+                        showTipDialog = true
+                    },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Enjoying Prompter?",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Tip to support app development",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            SpeechRecognitionSection(
+                languages = speechLanguages,
+                selectedLocaleTag = settings.preferredSpeechLanguageTag,
+                download = modelDownload,
+                onSelect = { localeTag ->
+                    settings = settings.copy(preferredSpeechLanguageTag = localeTag)
+                    settingsRepository.save(settings)
+                },
+                onDownloadBaseModel = {
+                    scope.launch {
+                        speechLanguageManager.download("en-US").collect { state ->
+                            modelDownload = state
+                            if (state is SpeechModelDownload.Completed) onRefreshSpeechLanguages()
+                        }
+                    }
+                },
+                onManageLanguages = {
+                    settingsRepository.save(settings)
+                    onManageSpeechLanguages()
+                }
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Text(
+                text = "Default Camera Mode",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            CameraMode.entries.forEach { mode ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = settings.defaultCameraMode == mode,
+                        onClick = { settings = settings.copy(defaultCameraMode = mode) }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = when (mode) {
+                            CameraMode.PictureInPicture -> "Picture-in-Picture"
+                            CameraMode.FullScreen -> "Full Screen"
+                        },
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "When starting a new recording, the camera preview will default to this mode.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Text(
+                text = "Video Recording",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Resolution",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            VideoResolutionDropdown(
+                current = settings.videoResolution,
+                onChange = { resolution ->
+                    settings = settings.copy(videoResolution = resolution)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Frame Rate",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            VideoFrameRateDropdown(
+                current = settings.videoFrameRate,
+                onChange = { frameRate ->
+                    settings = settings.copy(videoFrameRate = frameRate)
+                }
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Text(
+                text = "Text Display",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF121212)),
+                contentAlignment = Alignment.Center
+            ) {
+                TextDisplaySample(
+                    style = settings.textDisplayStyle,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Text(
+                text = "Font",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            FontDropdown(
+                current = settings.textDisplayStyle.fontFamily,
+                onChange = { font ->
+                    settings = settings.copy(
+                        textDisplayStyle = settings.textDisplayStyle.copy(fontFamily = font)
+                    )
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Size: ${settings.textDisplayStyle.fontSizeSp.roundToInt()}sp",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Slider(
+                value = settings.textDisplayStyle.fontSizeSp,
+                onValueChange = { size ->
+                    settings = settings.copy(
+                        textDisplayStyle = settings.textDisplayStyle.copy(fontSizeSp = size)
+                    )
+                },
+                valueRange = 20f..80f
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Text Colour",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            ColorSwatchRow(
+                selected = settings.textDisplayStyle.textColorHex,
+                onSelect = { color ->
+                    settings = settings.copy(
+                        textDisplayStyle = settings.textDisplayStyle.copy(textColorHex = color)
+                    )
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Border Width: ${settings.textDisplayStyle.borderWidthDp.roundToInt()}dp",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Slider(
+                value = settings.textDisplayStyle.borderWidthDp,
+                onValueChange = { width ->
+                    settings = settings.copy(
+                        textDisplayStyle = settings.textDisplayStyle.copy(borderWidthDp = width)
+                    )
+                },
+                valueRange = 0f..10f
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Border Colour",
+                style = MaterialTheme.typography.titleSmall
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            ColorSwatchRow(
+                selected = settings.textDisplayStyle.borderColorHex,
+                onSelect = { color ->
+                    settings = settings.copy(
+                        textDisplayStyle = settings.textDisplayStyle.copy(borderColorHex = color)
+                    )
+                }
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showFeedbackDialog = true },
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Send Feedback",
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Report a bug, request a feature, or share your thoughts",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = buildInfo,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+
+            if (isDebug) {
+                Spacer(modifier = Modifier.height(32.dp))
+                DebugPanel(
+                    debugRepository = debugRepository,
+                    scriptRepository = scriptRepository
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+
+    if (showTipDialog) {
+        val purchase: (String) -> Unit = { productId ->
+            isPurchasing = true
+            dialogMessage = null
+            billingManager.purchase(productId) { success ->
+                isPurchasing = false
+                if (success) {
+                    showTipDialog = false
+                } else {
+                    dialogMessage = "Purchase could not be completed. Please try again."
+                }
+            }
+        }
+        TipDialog(
+            isPurchasing = isPurchasing,
+            message = dialogMessage,
+            smallPrice = tipPrices[SMALL_TIP_PRODUCT_ID],
+            largePrice = tipPrices[LARGE_TIP_PRODUCT_ID],
+            onBuySmall = { purchase(SMALL_TIP_PRODUCT_ID) },
+            onBuyLarge = { purchase(LARGE_TIP_PRODUCT_ID) },
+            onCancel = {
+                if (!isPurchasing) {
+                    showTipDialog = false
+                    dialogMessage = null
+                }
+            }
+        )
+    }
+    if (showFeedbackDialog) {
+        FeedbackDialog(
+            onSelect = { category ->
+                showFeedbackDialog = false
+                onComposeEmail(category.emailSubject, category == FeedbackCategory.BugReport)
+            },
+            onCancel = { showFeedbackDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun SpeechRecognitionSection(
+    languages: List<SpeechLanguageAvailability>?,
+    selectedLocaleTag: String?,
+    download: SpeechModelDownload?,
+    onSelect: (String) -> Unit,
+    onDownloadBaseModel: () -> Unit,
+    onManageLanguages: () -> Unit,
+) {
+    Text("Speech Recognition", style = MaterialTheme.typography.titleMedium)
+    Spacer(modifier = Modifier.height(8.dp))
+
+    if (languages == null) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+            Spacer(modifier = Modifier.width(12.dp))
+            Text("Checking on-device speech recognition…")
+        }
+        return
+    }
+
+    val installed = languages.filter { it.status == SpeechLanguageStatus.Installed }
+    if (installed.isEmpty()) {
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer
+            )
+        ) {
+            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                Text(
+                    "On-device speech recognition is not downloaded.",
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                when (download) {
+                    is SpeechModelDownload.Started -> DownloadProgressText(0L, download.totalBytes)
+                    is SpeechModelDownload.Progress -> DownloadProgressText(
+                        download.bytesDownloaded,
+                        download.totalBytes,
+                    )
+                    is SpeechModelDownload.Completed -> DownloadProgressText(1L, 1L, completed = true)
+                    is SpeechModelDownload.Failed -> Text(
+                        download.message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    else -> Button(onClick = onDownloadBaseModel) {
+                        Text("Download speech recognition")
+                    }
+                }
+            }
+        }
+        return
+    }
+
+    Text("Selected Language", style = MaterialTheme.typography.titleSmall)
+    Spacer(modifier = Modifier.height(4.dp))
+    SpeechLanguageDropdown(
+        current = selectedLocaleTag,
+        installed = installed,
+        onChange = onSelect
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    OutlinedButton(onClick = onManageLanguages) {
+        Text("Manage languages")
+    }
+}
+
+@Composable
+private fun SpeechLanguageDropdown(
+    current: String?,
+    installed: List<SpeechLanguageAvailability>,
+    onChange: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(speechLanguageLabel(current))
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            installed.forEach { item ->
+                DropdownMenuItem(
+                    text = { Text(item.language.displayName) },
+                    onClick = {
+                        onChange(item.language.localeTag)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+internal fun DownloadProgressText(
+    bytesDownloaded: Long,
+    totalBytes: Long,
+    completed: Boolean = false,
+) {
+    val progress = if (totalBytes > 0L) {
+        (bytesDownloaded.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    Column {
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            when {
+                completed -> "Download complete"
+                bytesDownloaded == 0L -> "Starting download…"
+                else -> "Downloaded ${formatDownloadBytes(bytesDownloaded)} of ${formatDownloadBytes(totalBytes)}"
+            },
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+internal fun formatDownloadBytes(bytes: Long): String = when {
+    bytes >= 1_000_000 -> "${bytes / 1_000_000} MB"
+    bytes >= 1_000 -> "${bytes / 1_000} KB"
+    else -> "$bytes bytes"
+}
+
+@Composable
+private fun FeedbackDialog(
+    onSelect: (FeedbackCategory) -> Unit,
+    onCancel: () -> Unit
+) {
+    Dialog(onDismissRequest = onCancel) {
+        Card(shape = MaterialTheme.shapes.extraLarge) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                Text(
+                    text = "Send Feedback",
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                FeedbackCategory.entries.forEach { category ->
+                    Button(
+                        onClick = { onSelect(category) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(text = category.label)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                TextButton(
+                    onClick = onCancel,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cancel")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TipDialog(
+    isPurchasing: Boolean,
+    message: String?,
+    smallPrice: String?,
+    largePrice: String?,
+    onBuySmall: () -> Unit,
+    onBuyLarge: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Dialog(onDismissRequest = onCancel) {
+        Card(shape = MaterialTheme.shapes.extraLarge) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                Text(
+                    text = "Thank you!",
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Tipping doesn't unlock any new features, but it helps support app development."
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onBuySmall,
+                        enabled = !isPurchasing,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = smallPrice ?: "Small Tip",
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    Button(
+                        onClick = onBuyLarge,
+                        enabled = !isPurchasing,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = largePrice ?: "Large Tip",
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(
+                    onClick = onCancel,
+                    enabled = !isPurchasing,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Cancel")
+                }
+                if (message != null) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FontDropdown(
+    current: String,
+    onChange: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(fontFamilyLabel(current))
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            FontFamilyOptions.forEach { name ->
+                DropdownMenuItem(
+                    text = { Text(fontFamilyLabel(name)) },
+                    onClick = {
+                        onChange(name)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VideoResolutionDropdown(
+    current: VideoResolution,
+    onChange: (VideoResolution) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(current.label())
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            VideoResolution.entries.forEach { resolution ->
+                DropdownMenuItem(
+                    text = { Text(resolution.label()) },
+                    onClick = {
+                        onChange(resolution)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VideoFrameRateDropdown(
+    current: VideoFrameRate,
+    onChange: (VideoFrameRate) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) {
+            Text(current.label())
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            VideoFrameRate.entries.forEach { frameRate ->
+                DropdownMenuItem(
+                    text = { Text(frameRate.label()) },
+                    onClick = {
+                        onChange(frameRate)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+private fun VideoResolution.label(): String = when (this) {
+    VideoResolution.HD_720 -> "720p"
+    VideoResolution.FHD_1080 -> "1080p"
+    VideoResolution.UHD_4K -> "4K"
+}
+
+private fun VideoFrameRate.label(): String = when (this) {
+    VideoFrameRate.FPS_24 -> "24fps"
+    VideoFrameRate.FPS_30 -> "30fps"
+    VideoFrameRate.FPS_60 -> "60fps"
+}
+
+private fun fontFamilyLabel(name: String): String =
+    if (name == "Default") "System Default" else name
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ColorSwatchRow(
+    selected: String,
+    onSelect: (String) -> Unit
+) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        ColorSwatches.forEach { hex ->
+            val isSelected = hex.equals(selected, ignoreCase = true)
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(parseHexColor(hex))
+                    .border(
+                        width = if (isSelected) 3.dp else 1.dp,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.3f),
+                        shape = CircleShape
+                    )
+                    .clickable { onSelect(hex) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun DebugPanel(
+    debugRepository: DebugRepository,
+    scriptRepository: ScriptRepository,
+) {
+    var settings by remember { mutableStateOf(debugRepository.load()) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    Column {
+        Text(
+            text = "Debug",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        DebugToggleRow(
+            title = "Verbose logging",
+            subtitle = "Emit debug/info/verbose levels to logcat",
+            checked = settings.verboseLogging,
+            onCheckedChange = { checked ->
+                settings = settings.copy(verboseLogging = checked)
+                debugRepository.save(settings)
+            }
+        )
+        DebugToggleRow(
+            title = "Auto-advance words",
+            subtitle = "Simulate speech: auto-scrolls the script in the teleprompter",
+            checked = settings.autoAdvanceWords,
+            onCheckedChange = { checked ->
+                settings = settings.copy(autoAdvanceWords = checked)
+                debugRepository.save(settings)
+            }
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = {
+                val script = Script(
+                    id = DEBUG_SCRIPT_ID,
+                    title = "Debug Large Script",
+                    content = debugLargeScriptContent()
+                )
+                scriptRepository.save(script)
+                Log.i(TAG) { "Injected debug script (${script.wordCount()} words)" }
+                message = "Injected '${script.title}' (${script.wordCount()} words)."
+            }
+        ) {
+            Text("Inject 1000+ word test script")
+        }
+        TextButton(
+            onClick = {
+                scriptRepository.loadAll()
+                    .filter { it.id == DEBUG_SCRIPT_ID }
+                    .forEach { scriptRepository.delete(it.id) }
+                Log.i(TAG) { "Removed debug scripts" }
+                message = "Removed debug scripts."
+            }
+        ) {
+            Text("Remove debug scripts")
+        }
+        if (message != null) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = message!!,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DebugToggleRow(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
+    }
+}
+
+private fun debugLargeScriptContent(): String {
+    val paragraph = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+    return buildString {
+        repeat(30) {
+            append(paragraph)
+            append("\n\n")
+        }
+    }
+}
