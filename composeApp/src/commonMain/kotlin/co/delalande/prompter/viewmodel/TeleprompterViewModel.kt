@@ -96,6 +96,7 @@ class TeleprompterViewModel(
     }
 
     fun toggleRecording() {
+        if (isProcessing) return
         if (isRecording) {
             stopRecording()
         } else {
@@ -113,7 +114,11 @@ class TeleprompterViewModel(
         recordingError = null
         lastRecordedFile = null
         Log.i(TAG) { "startRecording -> $currentVideoPath" }
+        // Treat the request as active until the recorder reports success or failure. This
+        // prevents a second tap or an exit from racing the asynchronous Start event.
+        isRecording = true
         cameraRecorder.startRecording(currentVideoPath)
+        if (recordingError == null) startPlayback()
     }
 
     private fun formatTimestampForFileName(epochMs: Long): String {

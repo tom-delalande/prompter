@@ -61,7 +61,6 @@ private fun saveVideoToPhotoLibrary(filePath: String, onResult: (SaveResult) -> 
                     onResult(SaveResult(uri = filePath))
                 } else {
                     Log.e(TAG) { "Failed to save video: ${error?.localizedDescription}" }
-                    deleteTempFile()
                     onResult(SaveResult(error = error?.localizedDescription ?: "Unknown error"))
                 }
             }

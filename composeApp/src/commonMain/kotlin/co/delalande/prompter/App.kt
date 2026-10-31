@@ -86,9 +86,20 @@ fun App(
     var editingScriptId by remember { mutableStateOf<String?>(null) }
     var teleprompterViewModel by remember { mutableStateOf<TeleprompterViewModel?>(null) }
     var saveResult by remember { mutableStateOf<SaveResult?>(null) }
+    var failedSavePath by remember { mutableStateOf<String?>(null) }
     var isSavingVideo by remember { mutableStateOf(false) }
+    var isFinalizingRecording by remember { mutableStateOf(false) }
     var showSavingDialog by remember { mutableStateOf(false) }
     var initialContentForNewScript by remember { mutableStateOf<String?>(null) }
+
+    fun saveVideo(filePath: String) {
+        isSavingVideo = true
+        onSaveToPhotos(filePath) { result ->
+            isSavingVideo = false
+            failedSavePath = if (result.isSuccess) null else filePath
+            saveResult = result
+        }
+    }
 
     LaunchedEffect(sharedText) {
         val text = sharedText ?: return@LaunchedEffect
@@ -183,14 +194,8 @@ fun App(
                                 teleprompterViewModel = null
                                 currentScreen = Screen.ScriptList
                             },
-                            onSaveToPhotos = { filePath ->
-                                isSavingVideo = true
-                                onSaveToPhotos(filePath) { result ->
-                                    isSavingVideo = false
-                                    saveResult = result
-                                }
-                            },
-                            onSaveStateChanged = { saving -> isSavingVideo = saving }
+                            onSaveToPhotos = ::saveVideo,
+                            onSaveStateChanged = { saving -> isFinalizingRecording = saving }
                         )
                     }
                 }
@@ -209,18 +214,26 @@ fun App(
                         result.uri?.let(onOpenVideo)
                     }
                 } else {
-                    snackbarHostState.showSnackbar(
-                        message = "Failed to save video: ${result.error}"
+                    val outcome = snackbarHostState.showSnackbar(
+                        message = "Failed to save video: ${result.error}. Original recording kept.",
+                        actionLabel = "Retry",
+                        duration = SnackbarDuration.Long
                     )
+                    saveResult = null
+                    if (outcome == SnackbarResult.ActionPerformed) {
+                        failedSavePath?.let(::saveVideo)
+                    }
+                    return@LaunchedEffect
                 }
                 saveResult = null
             }
 
-            LaunchedEffect(isSavingVideo) {
+            val isSaveBusy = isSavingVideo || isFinalizingRecording
+            LaunchedEffect(isSaveBusy) {
                 when {
-                    isSavingVideo -> {
+                    isSaveBusy -> {
                         delay(SAVING_DIALOG_GRACE_MS)
-                        if (isSavingVideo) showSavingDialog = true
+                        if (isSavingVideo || isFinalizingRecording) showSavingDialog = true
                     }
                     showSavingDialog -> {
                         delay(SAVING_DIALOG_MIN_DISPLAY_MS)

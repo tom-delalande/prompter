@@ -72,6 +72,7 @@ fun TeleprompterScreen(
 ) {
     var isPipMode by remember { mutableStateOf(defaultCameraMode == CameraMode.PictureInPicture) }
     var showExitConfirmDialog by remember { mutableStateOf(false) }
+    var exitAfterRecording by remember { mutableStateOf(false) }
     var recordingElapsedMillis by remember { mutableStateOf(0L) }
     val animatedAudioLevel by animateFloatAsState(
         targetValue = viewModel.audioLevel,
@@ -93,7 +94,16 @@ fun TeleprompterScreen(
         if (viewModel.lastRecordedFile != null) {
             viewModel.lastRecordedFile?.let { onSaveToPhotos(it) }
             viewModel.resetAfterSave()
+            onSaveStateChanged(false)
+            if (exitAfterRecording) {
+                viewModel.destroy()
+                onBack()
+            }
         }
+    }
+
+    LaunchedEffect(viewModel.recordingError) {
+        if (viewModel.recordingError != null) exitAfterRecording = false
     }
 
     LaunchedEffect(viewModel.isProcessing, viewModel.lastRecordedFile) {
@@ -305,13 +315,13 @@ fun TeleprompterScreen(
             AlertDialog(
                 onDismissRequest = { showExitConfirmDialog = false },
                 title = { Text("Stop recording?") },
-                text = { Text("Your current recording will be stopped and you'll leave the teleprompter screen.") },
+                text = { Text("Your current recording will be stopped and saved before leaving.") },
                 confirmButton = {
                     TextButton(
                         onClick = {
                             showExitConfirmDialog = false
-                            viewModel.destroy()
-                            onBack()
+                            exitAfterRecording = true
+                            viewModel.toggleRecording()
                         }
                     ) {
                         Text("Stop & Exit")
@@ -335,12 +345,7 @@ private fun RecordButton(viewModel: TeleprompterViewModel) {
             .clip(CircleShape)
             .background(Color(0xFFFF5252))
             .clickable(enabled = !viewModel.isProcessing) {
-                if (!viewModel.isRecording && !viewModel.isPlaying) {
-                    viewModel.toggleRecording()
-                    viewModel.startPlayback()
-                } else {
-                    viewModel.toggleRecording()
-                }
+                viewModel.toggleRecording()
             },
         contentAlignment = Alignment.Center
     ) {

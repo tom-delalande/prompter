@@ -7,7 +7,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,6 +17,7 @@ import androidx.lifecycle.lifecycleScope
 import co.delalande.prompter.billing.AndroidBillingManager
 import co.delalande.prompter.data.PlatformStorage
 import co.delalande.prompter.feedback.FEEDBACK_EMAIL_ADDRESS
+import co.delalande.prompter.log.Log
 import co.delalande.prompter.log.initLogging
 import co.delalande.prompter.model.SaveResult
 import co.delalande.prompter.recording.AndroidCameraRecorder
@@ -28,7 +28,6 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
 
 class MainActivity : ComponentActivity() {
@@ -69,7 +68,7 @@ class MainActivity : ComponentActivity() {
                                 SaveResult(error = e.message ?: "Unknown error")
                             }
                         }
-                        if (lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                        if (lifecycle.currentState.isAtLeast(Lifecycle.State.CREATED)) {
                             callback(result)
                         }
                     }
@@ -130,8 +129,8 @@ class MainActivity : ComponentActivity() {
 
     private fun saveVideoToMediaStore(filePath: String): Uri {
         val file = File(filePath)
-        if (!file.exists()) {
-            throw IOException("File not found")
+        if (!file.isFile || file.length() == 0L) {
+            throw IOException("Recording file is missing or empty: $filePath")
         }
 
         val values = ContentValues().apply {
@@ -147,35 +146,27 @@ class MainActivity : ComponentActivity() {
             ?: throw IOException("Failed to create MediaStore entry")
 
         try {
-            contentResolver.openFileDescriptor(uri, "wt")?.use { pfd ->
-                FileOutputStream(pfd.fileDescriptor).use { fos ->
-                    file.inputStream().use { fis ->
-                        val inChannel = fis.channel
-                        val outChannel = fos.channel
-                        val size = inChannel.size()
-                        var position = 0L
-                        val chunk = 8L shl 20
-                        try {
-                            while (position < size) {
-                                position += inChannel.transferTo(position, chunk, outChannel)
-                            }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Partial save: wrote $position of $size bytes", e)
-                        }
-                    }
+            val expectedBytes = file.length()
+            val copiedBytes = contentResolver.openOutputStream(uri, "wt")?.use { output ->
+                file.inputStream().use { input ->
+                    input.copyTo(output)
                 }
             } ?: throw IOException("Failed to open output stream")
+            if (copiedBytes != expectedBytes) {
+                throw IOException("Incomplete video copy: $copiedBytes of $expectedBytes bytes")
+            }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val done = ContentValues().apply { put(MediaStore.Video.Media.IS_PENDING, 0) }
-                contentResolver.update(uri, done, null, null)
+                if (contentResolver.update(uri, done, null, null) != 1) {
+                    throw IOException("Failed to finish saving video")
+                }
             }
+            if (!file.delete()) Log.w(TAG) { "Saved video, but could not remove temporary file $filePath" }
             return uri
         } catch (e: Exception) {
             try { contentResolver.delete(uri, null, null) } catch (_: Exception) {}
             throw e
-        } finally {
-            file.delete()
         }
     }
 }
